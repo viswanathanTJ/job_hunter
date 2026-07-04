@@ -18,6 +18,27 @@ All AI processing runs through **your Claude Code subscription** via headless
                                    localhost:4680             career-ops reports/tracker
 ```
 
+## Screenshots
+
+**Dashboard** — the whole search at a glance: stat tiles, a pipeline funnel, one-click
+Fetch / Analyze-all, and a live activity feed.
+
+![Dashboard](docs/screenshots/dashboard.png)
+
+**Jobs** — a filterable, sortable list with score chips and status badges.
+
+![Jobs list](docs/screenshots/jobs.png)
+
+**Pipeline** — a drag-and-drop Kanban board; move a card between columns to change status.
+
+![Pipeline board](docs/screenshots/pipeline.png)
+
+**Job detail** — the AI match analysis (score dial, reasoning, pros/cons), the inline
+tailored-resume preview, and a full event timeline, with the Analyze → Resume → Proceed →
+Applied actions across the top.
+
+![Job detail](docs/screenshots/job-detail.png)
+
 ---
 
 ## Built on career-ops (the backbone)
