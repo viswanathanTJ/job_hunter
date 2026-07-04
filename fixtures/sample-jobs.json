@@ -1,0 +1,35 @@
+{
+  "source": "fixture",
+  "jobs": [
+    {
+      "title": "Senior Backend Engineer",
+      "company": "Acme Fintech",
+      "location": "Bengaluru, Karnataka, India (Hybrid)",
+      "postedAt": "2026-07-01",
+      "employmentType": "Full-time",
+      "seniorityLevel": "Mid-Senior level",
+      "jobLink": "https://www.linkedin.com/jobs/view/fixture-acme-9000001",
+      "jobDescription": "We are looking for a Senior Backend Engineer to design and scale our payment APIs. You will build microservices in Python (FastAPI) and Java (Spring Boot), own services end to end including CI/CD and monitoring, and work with Kafka for event-driven data sync. 4+ years of production backend experience required. Hybrid role based in Bengaluru."
+    },
+    {
+      "title": "Backend Engineer (Remote, India)",
+      "company": "Orbit Labs",
+      "location": "India (Remote)",
+      "postedAt": "2026-07-02",
+      "employmentType": "Full-time",
+      "seniorityLevel": "Mid-Senior level",
+      "jobLink": "https://www.linkedin.com/jobs/view/fixture-orbit-9000002",
+      "jobDescription": "Orbit Labs is hiring a Backend Engineer to build REST APIs and internal developer tooling. Stack: Python, Django, PostgreSQL, Docker, GitHub Actions. Fully remote within India. You will own the full lifecycle from design through deployment and operations. 3+ years experience with production systems expected."
+    },
+    {
+      "title": "Senior Software Engineer - Backend",
+      "company": "MegaCorp Retail",
+      "location": "Mumbai, Maharashtra, India (On-site)",
+      "postedAt": "2026-07-02",
+      "employmentType": "Full-time",
+      "seniorityLevel": "Mid-Senior level",
+      "jobLink": "https://www.linkedin.com/jobs/view/fixture-megacorp-9000003",
+      "jobDescription": "MegaCorp Retail seeks a Senior Software Engineer for our Mumbai office (5 days on-site). Java, Spring, Kubernetes, and large-scale order management systems. Relocation to Mumbai required. 5+ years experience. Competitive compensation."
+    }
+  ]
+}

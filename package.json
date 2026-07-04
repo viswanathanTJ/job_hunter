@@ -1,0 +1,15 @@
+{
+  "name": "job-hunter",
+  "private": true,
+  "type": "module",
+  "description": "Local job-search dashboard for career-ops: fetch, analyze, tailor resumes, track applications",
+  "scripts": {
+    "start": "node server/index.mjs",
+    "dev": "node --watch server/index.mjs",
+    "build": "npm --prefix web run build",
+    "smoke": "node server/smoke-test.mjs"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
