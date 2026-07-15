@@ -6,6 +6,13 @@ export function StatusBadge({ status }) {
   return <span className={`badge s-${status}`}>{meta.label}</span>;
 }
 
+const SOURCE_LABELS = { linkedin: 'LinkedIn', naukri: 'Naukri', apify: 'LinkedIn', import: 'Imported' };
+export function SourceBadge({ source }) {
+  if (!source) return null;
+  const label = SOURCE_LABELS[source] || source;
+  return <span className={`src-badge src-${source}`}>{label}</span>;
+}
+
 export function ScoreChip({ score, verdict }) {
   const tier = scoreTier(score);
   if (tier === 'none') return <span className="score-chip none">not scored</span>;

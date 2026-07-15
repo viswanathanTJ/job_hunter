@@ -10,7 +10,8 @@ export default function Dashboard() {
   const [busy, setBusy] = useState('');
   const [msg, setMsg] = useState('');
 
-  const fetching = ops.some((o) => o.type === 'fetch' && o.state === 'running');
+  const fetchingSource = (src) =>
+    ops.some((o) => o.type === 'fetch' && o.source === src && o.state === 'running');
   const analyzing = ops.filter((o) => o.type === 'analyze' && o.state === 'running').length;
 
   const act = async (name, fn) => {
@@ -19,9 +20,9 @@ export default function Dashboard() {
     try {
       const r = await fn();
       setMsg(
-        name === 'fetch'
+        name.startsWith('fetch')
           ? r.alreadyRunning
-            ? 'A fetch is already running.'
+            ? 'A fetch is already running for that source.'
             : 'Fetch started — new jobs will appear as soon as Apify finishes (~1-3 min).'
           : `${r.queued} job(s) queued for analysis.`
       );
@@ -73,8 +74,19 @@ export default function Dashboard() {
       </div>
 
       <div className="btn-row" style={{ marginBottom: 20 }}>
-        <button className="btn primary" disabled={busy === 'fetch' || fetching} onClick={() => act('fetch', () => apiPost('/fetch'))}>
-          {fetching ? <span className="spinner" /> : '⟳'} Fetch new jobs
+        <button
+          className="btn primary"
+          disabled={busy === 'fetch:linkedin' || fetchingSource('linkedin')}
+          onClick={() => act('fetch:linkedin', () => apiPost('/fetch?source=linkedin'))}
+        >
+          {fetchingSource('linkedin') ? <span className="spinner" /> : '⟳'} Fetch LinkedIn
+        </button>
+        <button
+          className="btn primary"
+          disabled={busy === 'fetch:naukri' || fetchingSource('naukri')}
+          onClick={() => act('fetch:naukri', () => apiPost('/fetch?source=naukri'))}
+        >
+          {fetchingSource('naukri') ? <span className="spinner" /> : '⟳'} Fetch Naukri
         </button>
         <button className="btn" disabled={busy === 'analyze'} onClick={() => act('analyze', () => apiPost('/analyze-all'))}>
           {analyzing > 0 ? <span className="spinner" /> : '◈'} Analyze all unscored
@@ -119,6 +131,7 @@ export default function Dashboard() {
             <div className="activity">
               <div className="line">
                 <b>{stats.lastFetch.status.toUpperCase()}</b>
+                {stats.lastFetch.source && <span className="mono" style={{ fontSize: 11 }}>{stats.lastFetch.source}</span>}
                 <span className="mono" style={{ fontSize: 11 }}>{relTime(stats.lastFetch.started_at)}</span>
               </div>
               <div className="line">found {stats.lastFetch.found} · new {stats.lastFetch.imported} · updated {stats.lastFetch.updated}</div>

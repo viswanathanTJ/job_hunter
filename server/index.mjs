@@ -6,6 +6,7 @@ import './db.mjs';
 import { jobsRouter } from './routes/jobs.mjs';
 import { ingestRouter } from './routes/ingest.mjs';
 import { actionsRouter } from './routes/actions.mjs';
+import { settingsRouter } from './routes/settings.mjs';
 
 const app = express();
 app.use(express.json({ limit: '20mb' }));
@@ -14,6 +15,7 @@ app.get('/api/health', (req, res) => res.json({ ok: true }));
 app.use('/api', jobsRouter);
 app.use('/api', ingestRouter);
 app.use('/api', actionsRouter);
+app.use('/api', settingsRouter);
 
 if (fs.existsSync(WEB_DIST)) {
   app.use(express.static(WEB_DIST));

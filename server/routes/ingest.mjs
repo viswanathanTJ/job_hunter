@@ -1,6 +1,7 @@
 import express from 'express';
 import { importJobs } from '../services/importer.mjs';
 import { startFetch, listFetchRuns } from '../services/apify.mjs';
+import { getSource, SOURCES } from '../services/sources.mjs';
 
 export const ingestRouter = express.Router();
 
@@ -15,8 +16,13 @@ ingestRouter.post('/import', (req, res) => {
 });
 
 ingestRouter.post('/fetch', (req, res) => {
+  const key = (req.query.source || req.body?.source || 'linkedin').toString();
+  const source = getSource(key);
+  if (!source) {
+    return res.status(400).json({ error: `Unknown source "${key}". Known: ${Object.keys(SOURCES).join(', ')}` });
+  }
   try {
-    res.status(202).json(startFetch());
+    res.status(202).json(startFetch(source));
   } catch (e) {
     res.status(409).json({ error: String(e.message) });
   }
