@@ -85,7 +85,9 @@ function cleanHtml(text) {
   if (fence) html = fence[1].trim();
   const start = html.indexOf('<!DOCTYPE');
   if (start > 0) html = html.slice(start);
-  if (!html.startsWith('<!DOCTYPE')) throw new Error('Model did not return an HTML document');
+  if (!html.startsWith('<!DOCTYPE')) {
+    throw new Error(`Model did not return an HTML document. Got: ${html.slice(0, 140)}`);
+  }
   // Belt-and-braces: make sure the stylesheet points one level up.
   html = html.replace(/href="resume\.css"/g, 'href="../resume.css"');
   return html;
@@ -154,6 +156,14 @@ export function generateResume(jobId, { force = false } = {}) {
     }
     opStart(key);
     try {
+      // Tailoring rewrites an existing master — it does not author one from
+      // scratch. Fail fast with an actionable message if the master is absent.
+      const master = readIfExists(MASTER_RESUME);
+      if (!master.includes('<')) {
+        throw new Error(
+          `No master resume at ${MASTER_RESUME}. Create Resume/resume.html (+ resume.css) first — tailoring reads and rewrites it per job.`
+        );
+      }
       const analysis = latestAnalysis(jobId);
       const raw = await runClaude(buildResumePrompt(job, analysis), {
         timeoutMs: 420_000,
