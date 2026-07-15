@@ -21,6 +21,8 @@ function envDefaults() {
     claudeModel: process.env.CLAUDE_MODEL || 'sonnet',
     resumePdfName: process.env.RESUME_PDF_NAME || 'Resume.pdf',
     fetchCount: Number(process.env.FETCH_COUNT || 10),
+    concurrency: Number(process.env.AI_CONCURRENCY || 4), // parallel claude -p runs
+
     linkedin: {
       actor: process.env.APIFY_ACTOR || 'curious_coder~linkedin-jobs-scraper',
       query: process.env.JOB_SEARCH_QUERY || 'Backend Engineer OR Senior Backend Engineer',

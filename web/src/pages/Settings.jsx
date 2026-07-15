@@ -10,6 +10,7 @@ function toForm(s) {
     claudeModel: s.claudeModel || '',
     resumePdfName: s.resumePdfName || '',
     fetchCount: s.fetchCount ?? 10,
+    concurrency: s.concurrency ?? 4,
     linkedin: {
       actor: s.linkedin?.actor || '',
       query: s.linkedin?.query || '',
@@ -83,6 +84,10 @@ export default function Settings() {
           <label className="field">
             <span className="microlabel">Jobs per fetch</span>
             <input className="input" type="number" min="1" max="200" value={form.fetchCount} onChange={(e) => set('fetchCount', e.target.value)} />
+          </label>
+          <label className="field">
+            <span className="microlabel">Parallel AI runs (1–16)</span>
+            <input className="input" type="number" min="1" max="16" value={form.concurrency} onChange={(e) => set('concurrency', e.target.value)} />
           </label>
           <label className="field">
             <span className="microlabel">Claude model</span>

@@ -209,6 +209,7 @@ Copy `.env.example` → `.env` and fill in what you need.
 | `FETCH_COUNT` | max jobs per fetch | `10` |
 | `PORT` | server port | `4680` |
 | `CLAUDE_MODEL` | model for headless analysis/tailoring | `sonnet` |
+| `AI_CONCURRENCY` | parallel `claude -p` runs (analyze/resume/company) | `4` |
 | `RESUME_PDF_NAME` | PDF filename inside `Resume/<Company>/` | `Viswanathan-T-J-Resume.pdf` |
 
 Hard match rules — location policy, comp floor, strictness — live in
@@ -268,8 +269,10 @@ Every step derives from DB state (`data/jobs.db`), so the app is safe to interru
 - **Tracker sync happens exactly once per application** (guarded by `tracker_num`). On
   failure it cleans up any orphan report/TSV so a retry writes fresh ones — the *Applied*
   state itself is never rolled back.
-- **Sequential AI queue** — analysis and resume runs go through one queue; parallel
-  `claude -p` spawns never happen. Ops can be cancelled while queued or running.
+- **Bounded AI worker pool** — analysis, resume, and company runs share one pool that
+  runs up to `concurrency` (Settings, default 4) `claude -p` spawns at once. Wide enough
+  to speed up batches, capped to stay under the Claude subscription's concurrency limits.
+  Ops can be cancelled while queued or running.
 - Kill the server at any point; restart continues where things stood.
 
 ---

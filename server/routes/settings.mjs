@@ -35,6 +35,7 @@ function sanitize(cur, b) {
   if (b.claudeModel !== undefined) patch.claudeModel = str(b.claudeModel, cur.claudeModel);
   if (b.resumePdfName !== undefined) patch.resumePdfName = str(b.resumePdfName, cur.resumePdfName);
   if (b.fetchCount !== undefined) patch.fetchCount = num(b.fetchCount, 1, 200, cur.fetchCount);
+  if (b.concurrency !== undefined) patch.concurrency = num(b.concurrency, 1, 16, cur.concurrency);
   // Only persist a token when a non-empty value is provided (blank = keep existing).
   if (typeof b.apifyToken === 'string' && b.apifyToken.trim()) patch.apifyToken = b.apifyToken.trim();
 

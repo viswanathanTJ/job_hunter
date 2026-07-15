@@ -1,3 +1,5 @@
+import { getSettings } from './settings.mjs';
+
 // In-memory registry of long-running operations, for UI polling + cancellation.
 const ops = new Map();
 const controllers = new Map();
@@ -48,14 +50,36 @@ export function opActive(key) {
 
 export const opRunning = opActive;
 
-// Sequential queue so we never run parallel `claude -p` spawns.
-let chain = Promise.resolve();
+// Bounded worker pool for `claude -p` spawns. Runs up to `concurrency` (from
+// settings, default 4) at once — enough to speed up batches without tripping
+// the Claude subscription's concurrent-session limits. enqueue(fn) resolves
+// with fn's result (or rejects with its error), same contract as before.
+let active = 0;
+const waiting = [];
+
+function concurrencyLimit() {
+  const n = Number(getSettings().concurrency);
+  return Number.isFinite(n) ? Math.min(16, Math.max(1, Math.round(n))) : 4;
+}
+
+function pump() {
+  const max = concurrencyLimit();
+  while (active < max && waiting.length) {
+    const job = waiting.shift();
+    active++;
+    Promise.resolve()
+      .then(job.fn)
+      .then(job.resolve, job.reject)
+      .finally(() => {
+        active--;
+        pump();
+      });
+  }
+}
+
 export function enqueue(fn) {
-  const run = () => fn();
-  const p = chain.then(run, run);
-  chain = p.then(
-    () => {},
-    () => {}
-  );
-  return p;
+  return new Promise((resolve, reject) => {
+    waiting.push({ fn, resolve, reject });
+    pump();
+  });
 }
