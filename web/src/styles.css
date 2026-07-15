@@ -393,6 +393,28 @@ h1.page-title {
   border: 1px solid var(--line);
   color: var(--ink-2);
 }
+.src-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 5px;
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+}
+.src-badge.src-naukri {
+  color: #4a90d9;
+  border-color: rgba(74, 144, 217, 0.4);
+  background: rgba(74, 144, 217, 0.1);
+}
+.src-badge.src-linkedin,
+.src-badge.src-apify {
+  color: #e2a336;
+  border-color: rgba(226, 163, 54, 0.4);
+  background: var(--accent-soft);
+}
 
 /* ============ toolbar / inputs ============ */
 .toolbar {

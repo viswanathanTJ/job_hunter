@@ -22,6 +22,7 @@ function toForm(s) {
       actor: s.naukri?.actor || '',
       query: s.naukri?.query || '',
       locations: asText(s.naukri?.locations),
+      includeRemote: Boolean(s.naukri?.includeRemote),
     },
   };
 }
@@ -140,6 +141,12 @@ export default function Settings() {
           <label className="field span-2">
             <span className="microlabel">Locations (comma-separated)</span>
             <input className="input" placeholder="Bengaluru, Chennai" value={form.naukri.locations} onChange={(e) => setIn('naukri', 'locations', e.target.value)} />
+          </label>
+        </div>
+        <div className="check-row">
+          <label className="check">
+            <input type="checkbox" checked={form.naukri.includeRemote} onChange={(e) => setIn('naukri', 'includeRemote', e.target.checked)} />
+            Include remote / work-from-home (India)
           </label>
         </div>
       </div>

@@ -33,6 +33,7 @@ function envDefaults() {
       actor: process.env.APIFY_NAUKRI_ACTOR || '',
       query: process.env.NAUKRI_SEARCH_QUERY || process.env.JOB_SEARCH_QUERY || 'Backend Engineer',
       locations: splitList(process.env.NAUKRI_LOCATION || 'Bengaluru, Chennai'),
+      includeRemote: true, // Naukri is India-only, so "remote" = work-from-home in India.
     },
   };
 }

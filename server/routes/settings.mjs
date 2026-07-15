@@ -54,6 +54,7 @@ function sanitize(cur, b) {
     if (n.actor !== undefined) patch.naukri.actor = str(n.actor, cur.naukri.actor);
     if (n.query !== undefined) patch.naukri.query = str(n.query, cur.naukri.query);
     if (n.locations !== undefined) patch.naukri.locations = list(n.locations);
+    if (n.includeRemote !== undefined) patch.naukri.includeRemote = bool(n.includeRemote);
   }
   return patch;
 }

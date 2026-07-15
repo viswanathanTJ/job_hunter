@@ -84,18 +84,24 @@ export const linkedinSource = {
 // two common input styles, and (b) read a wide set of possible output keys.
 // The actor id is required (no safe default) — set APIFY_NAUKRI_ACTOR in .env.
 
+const naukriSlug = (s) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
 function naukriUrl(query, location) {
   // Naukri search URLs look like: naukri.com/full-stack-developer-jobs-in-bengaluru
-  const slug = (s) =>
-    s
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
-  const kSlug = slug(query);
   const loc = (location || '').trim();
-  const path = loc ? `${kSlug}-jobs-in-${slug(loc)}` : `${kSlug}-jobs`;
+  const path = loc ? `${naukriSlug(query)}-jobs-in-${naukriSlug(loc)}` : `${naukriSlug(query)}-jobs`;
   const qs = new URLSearchParams({ k: query, ...(loc ? { l: loc } : {}) });
   return `https://www.naukri.com/${path}?${qs.toString()}`;
+}
+
+// Naukri's work-from-home filter is wfhType=2 (remote within India).
+function naukriRemoteUrl(query) {
+  const qs = new URLSearchParams({ k: query, wfhType: '2' });
+  return `https://www.naukri.com/${naukriSlug(query)}-jobs?${qs.toString()}`;
 }
 
 export const naukriSource = {
@@ -108,12 +114,14 @@ export const naukriSource = {
       actor: s.naukri.actor,
       query: s.naukri.query,
       locations: s.naukri.locations,
+      includeRemote: s.naukri.includeRemote,
       count: s.fetchCount,
     };
   },
   buildInput: (c) => {
     const locs = c.locations.length ? c.locations : [''];
     const urls = locs.map((loc) => naukriUrl(c.query, loc));
+    if (c.includeRemote) urls.push(naukriRemoteUrl(c.query));
     return {
       // Different Naukri actors accept different keys — provide the common ones.
       startUrls: urls.map((url) => ({ url })),
