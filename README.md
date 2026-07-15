@@ -111,10 +111,11 @@ npm --prefix web run dev   # Vite dev server on :4681, proxies /api → :4680
 
 ## The workflow
 
-1. **Fetch** — "Fetch new jobs" runs the same Apify LinkedIn search the n8n workflow did
-   (Bengaluru/Chennai hybrid + remote, query/lookback configurable in `.env`). Or POST any
-   job list to `/api/import` (n8n-compatible shape) — an existing n8n workflow can keep
-   pushing jobs here unchanged.
+1. **Fetch** — "Fetch LinkedIn" runs the same Apify LinkedIn search the n8n workflow did
+   (Bengaluru/Chennai hybrid + remote, query/lookback configurable in `.env`); "Fetch Naukri"
+   runs a Naukri.com search via `APIFY_NAUKRI_ACTOR`. Both share `APIFY_TOKEN` and can run at
+   once. Or POST any job list to `/api/import` (n8n-compatible shape) — an existing n8n
+   workflow can keep pushing jobs here unchanged.
 2. **Analyze** — each job is scored **0–5** against `cv.md` + `config/profile.yml` +
    `modes/_profile.md` + `config/match-rules.md`. Output: score, `YES`/`NO` verdict, pros,
    cons, reasoning, and a location check. A failed hard rule forces `NO` regardless of skill match.
@@ -191,7 +192,10 @@ Copy `.env.example` → `.env` and fill in what you need.
 | Var | Meaning | Default |
 |---|---|---|
 | `APIFY_TOKEN` | Apify API token (required only for Fetch) | — |
-| `APIFY_ACTOR` | scraper actor | `curious_coder~linkedin-jobs-scraper` |
+| `APIFY_ACTOR` | LinkedIn scraper actor | `curious_coder~linkedin-jobs-scraper` |
+| `APIFY_NAUKRI_ACTOR` | Naukri scraper actor (required for "Fetch Naukri") | — |
+| `NAUKRI_SEARCH_QUERY` | Naukri keywords | falls back to `JOB_SEARCH_QUERY` |
+| `NAUKRI_LOCATION` | Naukri location(s), comma-separated | `Bengaluru, Chennai` |
 | `JOB_SEARCH_QUERY` | LinkedIn keywords | `Backend Engineer OR Senior Backend Engineer` |
 | `LOOKBACK_HOURS` | posting recency window | `24` |
 | `FETCH_COUNT` | max jobs per fetch | `10` |
@@ -224,7 +228,7 @@ immediately without a restart.
 | Method + path | Purpose |
 |---|---|
 | `POST /import` | Import a job array or `{ jobs: [...] }` (n8n-compatible shape). Idempotent upsert on URL |
-| `POST /fetch` | Kick off a background Apify LinkedIn fetch (`202`; `409` if one is running) |
+| `POST /fetch` | Kick off a background Apify fetch. `?source=linkedin` (default) or `?source=naukri` (`202`; `409` if that source is already running) |
 | `GET /fetch/runs` | Recent fetch runs with counts/status |
 
 **Actions**

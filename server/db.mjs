@@ -83,6 +83,13 @@ CREATE INDEX IF NOT EXISTS idx_resumes_job ON resumes(job_id);
 CREATE INDEX IF NOT EXISTS idx_events_job ON events(job_id);
 `);
 
+// Migration: label each fetch run with the source that produced it (LinkedIn,
+// Naukri, …). Guarded so existing databases upgrade in place.
+const fetchRunCols = db.prepare('PRAGMA table_info(fetch_runs)').all().map((c) => c.name);
+if (!fetchRunCols.includes('source')) {
+  db.exec("ALTER TABLE fetch_runs ADD COLUMN source TEXT NOT NULL DEFAULT 'linkedin'");
+}
+
 export const STATUSES = [
   'new',
   'reviewed',
