@@ -66,6 +66,8 @@ ${job.description}
    already lists it, e.g. certificates); claiming authorship of tools the candidate merely uses.
 3. Keep the EXACT HTML document structure, class names, section order, and inline SVG icons.
    Do not add or remove sections. Do not add any <style> blocks or inline styles.
+   Preserve the <span class="kw">…</span> keyword highlighting; you MAY move it onto the
+   technology terms most relevant to this job, but only ever wrap real tech/tool names.
 4. Change ONLY: the <title>, the role line under the name, the summary text, the wording and
    ordering of experience/project bullets, and the ordering/emphasis of skills — to align
    with this job description.
