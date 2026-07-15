@@ -3,6 +3,7 @@
 // items into the importer's canonical shape. Add a provider by adding a
 // descriptor here and registering it in SOURCES.
 import { stripHtml } from './apify.mjs';
+import { getSettings } from './settings.mjs';
 
 const RECENT_DAYS = 7;
 const recentCutoff = () => new Date(Date.now() - RECENT_DAYS * 86400000).toISOString().slice(0, 10);
@@ -10,29 +11,43 @@ const MAX_ITEMS = 50;
 
 // --- LinkedIn (via curious_coder~linkedin-jobs-scraper) --------------------
 
-function linkedinUrls({ query, lookbackHours }) {
+function linkedinUrls({ query, locations, lookbackHours, includeRemoteIndia, includeRemoteAnywhere }) {
   const k = encodeURIComponent(query);
   const r = lookbackHours * 3600;
-  return [
-    // On-site/hybrid in the two allowed cities
-    `https://www.linkedin.com/jobs/search/?keywords=${k}&location=Bengaluru&f_TPR=r${r}&f_WT=1%2C3&sortBy=DD`,
-    `https://www.linkedin.com/jobs/search/?keywords=${k}&location=Chennai&f_TPR=r${r}&f_WT=1%2C3&sortBy=DD`,
-    // Remote (India + anywhere)
-    `https://www.linkedin.com/jobs/search/?keywords=${k}&location=India&f_TPR=r${r}&f_WT=2&sortBy=DD`,
-    `https://www.linkedin.com/jobs/search/?keywords=${k}&f_TPR=r${r}&f_WT=2&sortBy=DD`,
-  ];
+  const urls = [];
+  // On-site (1) + hybrid (3) in each configured location.
+  for (const loc of locations.length ? locations : ['India']) {
+    urls.push(
+      `https://www.linkedin.com/jobs/search/?keywords=${k}&location=${encodeURIComponent(loc)}&f_TPR=r${r}&f_WT=1%2C3&sortBy=DD`
+    );
+  }
+  // Remote within India.
+  if (includeRemoteIndia) {
+    urls.push(`https://www.linkedin.com/jobs/search/?keywords=${k}&location=India&f_TPR=r${r}&f_WT=2&sortBy=DD`);
+  }
+  // Remote anywhere (no location) — off by default; this is what returned US jobs.
+  if (includeRemoteAnywhere) {
+    urls.push(`https://www.linkedin.com/jobs/search/?keywords=${k}&f_TPR=r${r}&f_WT=2&sortBy=DD`);
+  }
+  return urls;
 }
 
 export const linkedinSource = {
   key: 'linkedin',
   label: 'LinkedIn',
-  config: () => ({
-    token: process.env.APIFY_TOKEN || '',
-    actor: process.env.APIFY_ACTOR || 'curious_coder~linkedin-jobs-scraper',
-    query: process.env.JOB_SEARCH_QUERY || 'Backend Engineer OR Senior Backend Engineer',
-    lookbackHours: Number(process.env.LOOKBACK_HOURS || 24),
-    count: Number(process.env.FETCH_COUNT || 10),
-  }),
+  config: () => {
+    const s = getSettings();
+    return {
+      token: s.apifyToken,
+      actor: s.linkedin.actor,
+      query: s.linkedin.query,
+      locations: s.linkedin.locations,
+      lookbackHours: s.linkedin.lookbackHours,
+      includeRemoteIndia: s.linkedin.includeRemoteIndia,
+      includeRemoteAnywhere: s.linkedin.includeRemoteAnywhere,
+      count: s.fetchCount,
+    };
+  },
   buildInput: (c) => ({ urls: linkedinUrls(c), scrapeCompany: false, count: c.count }),
   parseItems(items) {
     const jobs = [];
@@ -69,7 +84,7 @@ export const linkedinSource = {
 // two common input styles, and (b) read a wide set of possible output keys.
 // The actor id is required (no safe default) — set APIFY_NAUKRI_ACTOR in .env.
 
-function naukriUrl({ query, location }) {
+function naukriUrl(query, location) {
   // Naukri search URLs look like: naukri.com/full-stack-developer-jobs-in-bengaluru
   const slug = (s) =>
     s
@@ -77,31 +92,34 @@ function naukriUrl({ query, location }) {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
   const kSlug = slug(query);
-  const firstLoc = (location || '').split(',')[0].trim();
-  const path = firstLoc ? `${kSlug}-jobs-in-${slug(firstLoc)}` : `${kSlug}-jobs`;
-  const qs = new URLSearchParams({ k: query, ...(firstLoc ? { l: firstLoc } : {}) });
+  const loc = (location || '').trim();
+  const path = loc ? `${kSlug}-jobs-in-${slug(loc)}` : `${kSlug}-jobs`;
+  const qs = new URLSearchParams({ k: query, ...(loc ? { l: loc } : {}) });
   return `https://www.naukri.com/${path}?${qs.toString()}`;
 }
 
 export const naukriSource = {
   key: 'naukri',
   label: 'Naukri',
-  config: () => ({
-    token: process.env.APIFY_TOKEN || '',
-    actor: process.env.APIFY_NAUKRI_ACTOR || '',
-    // Fall back to the shared LinkedIn query so the user need not duplicate it.
-    query: process.env.NAUKRI_SEARCH_QUERY || process.env.JOB_SEARCH_QUERY || 'Backend Engineer',
-    location: process.env.NAUKRI_LOCATION || 'Bengaluru, Chennai',
-    count: Number(process.env.FETCH_COUNT || 10),
-  }),
+  config: () => {
+    const s = getSettings();
+    return {
+      token: s.apifyToken,
+      actor: s.naukri.actor,
+      query: s.naukri.query,
+      locations: s.naukri.locations,
+      count: s.fetchCount,
+    };
+  },
   buildInput: (c) => {
-    const url = naukriUrl(c);
+    const locs = c.locations.length ? c.locations : [''];
+    const urls = locs.map((loc) => naukriUrl(c.query, loc));
     return {
       // Different Naukri actors accept different keys — provide the common ones.
-      startUrls: [{ url }],
-      urls: [url],
+      startUrls: urls.map((url) => ({ url })),
+      urls,
       keyword: c.query,
-      location: c.location,
+      location: locs.join(', '),
       maxItems: c.count,
       count: c.count,
     };

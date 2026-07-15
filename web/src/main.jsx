@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard.jsx';
 import Jobs from './pages/Jobs.jsx';
 import Pipeline from './pages/Pipeline.jsx';
 import JobDetail from './pages/JobDetail.jsx';
+import Settings from './pages/Settings.jsx';
 import './styles.css';
 
 const router = createBrowserRouter([
@@ -17,6 +18,7 @@ const router = createBrowserRouter([
       { path: 'jobs', element: <Jobs /> },
       { path: 'pipeline', element: <Pipeline /> },
       { path: 'jobs/:id', element: <JobDetail /> },
+      { path: 'settings', element: <Settings /> },
     ],
   },
 ]);

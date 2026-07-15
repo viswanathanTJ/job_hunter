@@ -185,7 +185,15 @@ State is fully derivable from the DB — see *Resumable & idempotent* below.
 
 ---
 
-## Configuration (`.env`)
+## Configuration
+
+Most search config lives on the **Settings page** (nav item 04) and is persisted to
+`data/settings.json` (gitignored). The `.env` values below act as **fallback defaults** —
+anything you set in the UI overrides them, and fetches pick up changes immediately with no
+restart. Location filtering (per-source city lists, and separate "remote in India" /
+"remote anywhere" toggles for LinkedIn) is edited there.
+
+### `.env` (fallback defaults)
 
 Copy `.env.example` → `.env` and fill in what you need.
 

@@ -603,6 +603,49 @@ textarea.input {
   font-weight: 600;
   margin: 0 0 12px;
 }
+.settings-block {
+  margin-bottom: 16px;
+}
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.field .input {
+  width: 100%;
+}
+.field.span-2 {
+  grid-column: 1 / -1;
+}
+.check-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+.check {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13.5px;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.check input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+}
+@media (max-width: 640px) {
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+}
 .proscons {
   display: grid;
   grid-template-columns: 1fr 1fr;

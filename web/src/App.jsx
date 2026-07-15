@@ -40,6 +40,9 @@ export default function App() {
             <NavLink to="/pipeline">
               <span className="glyph">03</span> Pipeline
             </NavLink>
+            <NavLink to="/settings">
+              <span className="glyph">04</span> Settings
+            </NavLink>
           </nav>
           <div className="foot">
             {running.length > 0 && (
