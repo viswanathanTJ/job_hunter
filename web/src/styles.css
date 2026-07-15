@@ -415,6 +415,55 @@ h1.page-title {
   border-color: rgba(226, 163, 54, 0.4);
   background: var(--accent-soft);
 }
+.company-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.verdict-chip {
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+}
+.verdict-chip.v-good_fit {
+  color: #3fae70;
+  border-color: rgba(63, 174, 112, 0.45);
+  background: rgba(63, 174, 112, 0.12);
+}
+.verdict-chip.v-caution {
+  color: #e2a336;
+  border-color: rgba(226, 163, 54, 0.45);
+  background: var(--accent-soft);
+}
+.verdict-chip.v-avoid {
+  color: #d9534a;
+  border-color: rgba(217, 83, 74, 0.45);
+  background: rgba(217, 83, 74, 0.12);
+}
+.company-rating {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.company-rating .of {
+  color: var(--ink-3);
+  font-weight: 400;
+}
+.company-rating .src {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--ink-3);
+}
+.company-facts {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
 
 /* ============ toolbar / inputs ============ */
 .toolbar {

@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import express from 'express';
-import { getJob, latestAnalysis, latestResume, setStatus, jobWithDetails } from '../db.mjs';
+import { getJob, latestAnalysis, latestResume, setStatus, jobWithDetails, latestCompanyReport } from '../db.mjs';
 import { analyzeJob, analyzeAll } from '../services/claude.mjs';
+import { analyzeCompany } from '../services/company.mjs';
 import { generateResume } from '../services/resume.mjs';
 import { markApplied } from '../services/tracker.mjs';
 import { opSnapshot, cancelOp } from '../services/ops.mjs';
@@ -33,6 +34,21 @@ actionsRouter.post('/jobs/:id/analyze', (req, res) => {
 actionsRouter.post('/analyze-all', (req, res) => {
   const queued = analyzeAll({ force: Boolean(req.body?.force) });
   res.status(202).json({ queued });
+});
+
+actionsRouter.post('/jobs/:id/analyze-company', (req, res) => {
+  const id = Number(req.params.id);
+  const job = getJob(id);
+  if (!job) return res.status(404).json({ error: 'Job not found' });
+  const force = Boolean(req.body?.force);
+  if (!force && latestCompanyReport(job.company)) {
+    return res.json({ skipped: true, report: latestCompanyReport(job.company) });
+  }
+  analyzeCompany(
+    { company: job.company, location: job.location, sampleTitle: job.title, jobId: id },
+    { force }
+  ).catch(() => {}); // completion visible via events/ops
+  res.status(202).json({ queued: true });
 });
 
 actionsRouter.post('/jobs/:id/resume', (req, res) => {

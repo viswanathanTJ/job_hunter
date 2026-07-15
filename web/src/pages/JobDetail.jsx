@@ -36,8 +36,10 @@ export default function JobDetail() {
 
   const analyzing = myOp?.type === 'analyze';
   const generating = myOp?.type === 'resume';
+  const researchingCompany = myOp?.type === 'company';
   const cancelling = myOp?.state === 'cancelling';
   const hasPdf = job.resume?.pdf_path;
+  const cr = job.companyReport;
 
   const StopButton = () =>
     myOp ? (
@@ -140,6 +142,9 @@ export default function JobDetail() {
             <button className="btn small" disabled={!!myOp} onClick={call(() => apiPost(`/jobs/${id}/resume`, { force: !!job.resume }))}>
               {generating ? <span className="spinner" /> : '⎘'} {job.resume ? 'Regenerate resume' : 'Generate resume'}
             </button>
+            <button className="btn small" disabled={!!myOp} onClick={call(() => apiPost(`/jobs/${id}/analyze-company`, { force: !!cr }))}>
+              {researchingCompany ? <span className="spinner" /> : '🏢'} {cr ? 'Re-check company' : 'Analyze company'}
+            </button>
           </div>
           <div className="btn-row">
             {job.status !== 'applied' && (
@@ -224,6 +229,70 @@ export default function JobDetail() {
                       ))}
                     </ul>
                   </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="panel">
+            <h2 className="section-title">Company insight</h2>
+            {researchingCompany && (
+              <p style={{ color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span className="spinner" />
+                {myOp.state === 'queued' ? 'Queued…' : `Claude is researching ${job.company} (web search)…`}
+                <StopButton />
+              </p>
+            )}
+            {!cr && !researchingCompany && (
+              <p style={{ color: 'var(--ink-3)', fontSize: 13.5 }}>
+                Not checked yet — hit “Analyze company” above. Claude looks up ratings, headcount, and what
+                employees say (Glassdoor / AmbitionBox / LinkedIn) to gauge fit.
+              </p>
+            )}
+            {cr && (
+              <>
+                <div className="company-head">
+                  <span className={`verdict-chip v-${cr.verdict}`}>
+                    {cr.verdict === 'good_fit' ? '✓ Good fit' : cr.verdict === 'avoid' ? '✕ Avoid' : '! Caution'}
+                  </span>
+                  {cr.rating != null && (
+                    <span className="company-rating">
+                      ★ {Number(cr.rating).toFixed(1)}<span className="of">/5</span>
+                      {cr.rating_source && cr.rating_source !== 'unknown' && (
+                        <span className="src"> · {cr.rating_source}</span>
+                      )}
+                    </span>
+                  )}
+                </div>
+                <div className="company-facts">
+                  {cr.headcount && cr.headcount !== 'unknown' && <span className="tag">👥 {cr.headcount}</span>}
+                  {cr.industry && cr.industry !== 'unknown' && <span className="tag">{cr.industry}</span>}
+                  {cr.hq && cr.hq !== 'unknown' && <span className="tag">📍 {cr.hq}</span>}
+                  {cr.founded && cr.founded !== 'unknown' && <span className="tag">est. {cr.founded}</span>}
+                </div>
+                {cr.summary && <p style={{ fontSize: 14, lineHeight: 1.65 }}>{cr.summary}</p>}
+                {(cr.pros.length > 0 || cr.cons.length > 0) && (
+                  <div className="proscons">
+                    <div>
+                      <span className="microlabel pro-head">Employees like</span>
+                      <ul>{cr.pros.map((p, i) => <li key={i}>{p}</li>)}</ul>
+                    </div>
+                    <div>
+                      <span className="microlabel con-head">Watch out for</span>
+                      <ul>{cr.cons.map((c, i) => <li key={i}>{c}</li>)}</ul>
+                    </div>
+                  </div>
+                )}
+                {cr.metrics.length > 0 && (
+                  <div className="company-facts" style={{ marginTop: 12 }}>
+                    {cr.metrics.map((m, i) => (
+                      <span className="tag" key={i}>{m.label}: <b>{m.value}</b></span>
+                    ))}
+                  </div>
+                )}
+                <div className="mono" style={{ fontSize: 10.5, color: 'var(--ink-3)', marginTop: 12 }}>
+                  {cr.sources.length > 0 && <>sources: {cr.sources.join(', ')} · </>}
+                  {cr.model} · {relTime(cr.updated_at || cr.created_at)}
                 </div>
               </>
             )}

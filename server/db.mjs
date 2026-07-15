@@ -67,6 +67,26 @@ CREATE TABLE IF NOT EXISTS events (
   payload TEXT,
   created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS company_reports (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  company_key TEXT NOT NULL UNIQUE,
+  company TEXT NOT NULL,
+  rating REAL,
+  rating_source TEXT DEFAULT '',
+  headcount TEXT DEFAULT '',
+  founded TEXT DEFAULT '',
+  hq TEXT DEFAULT '',
+  industry TEXT DEFAULT '',
+  verdict TEXT DEFAULT '',
+  summary TEXT DEFAULT '',
+  pros TEXT DEFAULT '[]',
+  cons TEXT DEFAULT '[]',
+  metrics TEXT DEFAULT '[]',
+  sources TEXT DEFAULT '[]',
+  model TEXT DEFAULT '',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS fetch_runs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   started_at TEXT NOT NULL,
@@ -142,6 +162,23 @@ export function parseJob(row) {
   return { ...row, tags: safeParse(row.tags, []) };
 }
 
+export const companyKey = (c) => String(c || '').trim().toLowerCase();
+
+export function parseCompanyReport(row) {
+  return {
+    ...row,
+    pros: safeParse(row.pros, []),
+    cons: safeParse(row.cons, []),
+    metrics: safeParse(row.metrics, []),
+    sources: safeParse(row.sources, []),
+  };
+}
+
+export function latestCompanyReport(company) {
+  const row = db.prepare('SELECT * FROM company_reports WHERE company_key = ?').get(companyKey(company));
+  return row ? parseCompanyReport(row) : null;
+}
+
 function safeParse(s, fallback) {
   try {
     const v = JSON.parse(s);
@@ -174,5 +211,6 @@ export function jobWithDetails(id) {
     notes: noteRows,
     events: eventRows,
     application,
+    companyReport: latestCompanyReport(job.company),
   };
 }

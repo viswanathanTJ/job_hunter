@@ -6,18 +6,22 @@ import { CV_MD, PROFILE_YML, PROFILE_MD, RULES_MD, readIfExists } from '../paths
 import { db, nowIso, addEvent, getJob, latestAnalysis, setStatus } from '../db.mjs';
 import { enqueue, opQueue, opStart, opEnd, opActive } from './ops.mjs';
 
-const model = () => process.env.CLAUDE_MODEL || 'sonnet';
+export const model = () => process.env.CLAUDE_MODEL || 'sonnet';
 
 function cancelledError() {
   return Object.assign(new Error('cancelled'), { cancelled: true });
 }
 
-export function runClaude(prompt, { timeoutMs = 300_000, signal } = {}) {
+export function runClaude(prompt, { timeoutMs = 300_000, signal, allowWeb = false } = {}) {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) return reject(cancelledError());
     // cwd = tmpdir so the headless run doesn't load the career-ops project
     // context (CLAUDE.md etc.) — the prompt carries everything it needs.
-    const child = spawn('claude', ['-p', '--output-format', 'json', '--model', model()], {
+    const args = ['-p', '--output-format', 'json', '--model', model()];
+    // Whitelisting these auto-approves them in headless mode (no prompt, and any
+    // other tool stays denied). Used only for company research, which needs live data.
+    if (allowWeb) args.push('--allowedTools', 'WebSearch,WebFetch');
+    const child = spawn('claude', args, {
       cwd: os.tmpdir(),
       env: process.env,
     });

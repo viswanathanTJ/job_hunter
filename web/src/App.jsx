@@ -54,8 +54,8 @@ export default function App() {
                       {o.state === 'cancelling'
                         ? 'STOPPING…'
                         : o.type === 'fetch'
-                          ? 'FETCHING JOBS'
-                          : `${o.state === 'queued' ? 'QUEUED ' : ''}${o.type.toUpperCase()} · ${o.company || o.jobId}`}
+                          ? `FETCHING · ${o.source || 'jobs'}`
+                          : `${o.state === 'queued' ? 'QUEUED ' : ''}${o.type === 'company' ? 'COMPANY' : o.type.toUpperCase()} · ${o.company || o.jobId}`}
                     </span>
                     {o.type !== 'fetch' && o.state !== 'cancelling' && (
                       <button className="op-x" title="Stop" onClick={() => apiPost('/ops/cancel', { key: o.key }).catch(() => {})}>
