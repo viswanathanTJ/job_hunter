@@ -1,5 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 import { DB_PATH } from './paths.mjs';
+import { urlKey } from './services/url-key.mjs';
 
 export const db = new DatabaseSync(DB_PATH);
 db.exec('PRAGMA journal_mode = WAL');
@@ -109,6 +110,51 @@ const fetchRunCols = db.prepare('PRAGMA table_info(fetch_runs)').all().map((c) =
 if (!fetchRunCols.includes('source')) {
   db.exec("ALTER TABLE fetch_runs ADD COLUMN source TEXT NOT NULL DEFAULT 'linkedin'");
 }
+
+// Migration: dedup jobs on a canonical url_key (tracking params stripped) rather
+// than the raw URL, which varies per fetch and caused duplicate rows. Written to
+// be self-healing: it (re)runs the backfill/collapse whenever any row still has a
+// NULL url_key, so a partially-applied migration recovers on the next boot.
+const jobCols = db.prepare('PRAGMA table_info(jobs)').all().map((c) => c.name);
+if (!jobCols.includes('url_key')) {
+  db.exec('ALTER TABLE jobs ADD COLUMN url_key TEXT');
+}
+const needsKeyBackfill = db.prepare("SELECT COUNT(*) n FROM jobs WHERE url_key IS NULL OR url_key = ''").get().n > 0;
+if (needsKeyBackfill) {
+  db.exec('BEGIN');
+  try {
+    // Backfill keys for rows that don't have one yet.
+    const setKey = db.prepare('UPDATE jobs SET url_key = ? WHERE id = ?');
+    for (const r of db.prepare("SELECT id, url FROM jobs WHERE url_key IS NULL OR url_key = ''").all()) {
+      setKey.run(urlKey(r.url), r.id);
+    }
+    // Collapse duplicates: keep the lowest id per url_key, repoint child rows, delete losers.
+    const groups = db
+      .prepare('SELECT url_key, MIN(id) keep, COUNT(*) n FROM jobs GROUP BY url_key HAVING n > 1')
+      .all();
+    for (const g of groups) {
+      const losers = db
+        .prepare('SELECT id FROM jobs WHERE url_key = ? AND id != ?')
+        .all(g.url_key, g.keep)
+        .map((r) => r.id);
+      for (const loser of losers) {
+        for (const tbl of ['analyses', 'resumes', 'notes', 'events']) {
+          db.prepare(`UPDATE ${tbl} SET job_id = ? WHERE job_id = ?`).run(g.keep, loser);
+        }
+        // applications is UNIQUE(job_id): move only if the keeper has none.
+        const keeperApp = db.prepare('SELECT 1 FROM applications WHERE job_id = ?').get(g.keep);
+        if (keeperApp) db.prepare('DELETE FROM applications WHERE job_id = ?').run(loser);
+        else db.prepare('UPDATE applications SET job_id = ? WHERE job_id = ?').run(g.keep, loser);
+        db.prepare('DELETE FROM jobs WHERE id = ?').run(loser);
+      }
+    }
+    db.exec('COMMIT');
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  }
+}
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_jobs_url_key ON jobs(url_key)');
 
 export const STATUSES = [
   'new',

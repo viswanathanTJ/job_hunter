@@ -33,6 +33,15 @@ const r3 = importJobs([changed], 'fixture');
 check('changed description updates, not duplicates', r3.updated === 1 && r3.created === 0);
 check('still 3 jobs total', db.prepare('SELECT COUNT(*) n FROM jobs').get().n === 3);
 
+// 3b. Same posting under different tracking params must NOT duplicate (#dedup)
+const withTracking = {
+  ...fixture.jobs[0],
+  jobLink: fixture.jobs[0].jobLink + '?position=59&refId=ABC%3D%3D&trackingId=XYZ%3D%3D',
+};
+const rDup = importJobs([withTracking], 'fixture');
+check('tracking-param variant creates no new row', rDup.created === 0);
+check('still 3 jobs after tracking variant', db.prepare('SELECT COUNT(*) n FROM jobs').get().n === 3);
+
 // 4. Status transitions + events
 const id = r1.ids[0];
 setStatus(id, 'reviewed');
