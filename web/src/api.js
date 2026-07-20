@@ -31,6 +31,7 @@ export const apiPut = (path, body) =>
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body || {}),
   }).then(handle);
+export const apiDelete = (path) => fetch(`/api${path}`, { method: 'DELETE' }).then(handle);
 
 /** Generic data hook with manual + automatic (pulse) refresh. */
 export function useApi(path, deps = []) {

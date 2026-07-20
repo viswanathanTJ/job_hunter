@@ -90,6 +90,32 @@ if (!fetchRunCols.includes('source')) {
   db.exec("ALTER TABLE fetch_runs ADD COLUMN source TEXT NOT NULL DEFAULT 'linkedin'");
 }
 
+// Companies sub-module: tracked career sites the user can scan on demand.
+db.exec(`
+CREATE TABLE IF NOT EXISTS companies (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  careers_url TEXT NOT NULL UNIQUE,
+  ats TEXT NOT NULL DEFAULT 'unknown',
+  config TEXT NOT NULL DEFAULT '{}',
+  enabled INTEGER NOT NULL DEFAULT 1,
+  last_scan_at TEXT,
+  last_scan_summary TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+`);
+{
+  const seed = db.prepare(
+    `INSERT OR IGNORE INTO companies (name, careers_url, ats, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?)`
+  );
+  const now = new Date().toISOString();
+  seed.run('Walmart', 'https://walmart.wd504.myworkdayjobs.com/en-US/WalmartExternal', 'workday', now, now);
+  seed.run('LSEG', 'https://lseg.wd3.myworkdayjobs.com/en-US/Careers', 'workday', now, now);
+  seed.run('Comcast', 'https://jobs.comcast.com', 'jibe', now, now);
+}
+
 export const STATUSES = [
   'new',
   'reviewed',

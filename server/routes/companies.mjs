@@ -1,0 +1,78 @@
+import express from 'express';
+import { db, nowIso, parseJob } from '../db.mjs';
+import {
+  listCompanies,
+  getCompany,
+  detectAts,
+  deriveName,
+  scanCompany,
+} from '../services/companyscan.mjs';
+
+export const companiesRouter = express.Router();
+
+companiesRouter.get('/companies', (req, res) => {
+  res.json(listCompanies());
+});
+
+companiesRouter.post('/companies', (req, res) => {
+  const careersUrl = String(req.body?.careers_url || '').trim();
+  if (!careersUrl) return res.status(400).json({ error: 'careers_url is required — paste the company careers/jobs link' });
+  let parsed;
+  try {
+    parsed = detectAts(careersUrl);
+  } catch (e) {
+    return res.status(400).json({ error: String(e.message) });
+  }
+  const name = String(req.body?.name || '').trim() || deriveName(careersUrl);
+  const now = nowIso();
+  try {
+    const info = db
+      .prepare(
+        `INSERT INTO companies (name, careers_url, ats, config, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?)`
+      )
+      .run(name, careersUrl, parsed.ats, JSON.stringify(parsed.config), now, now);
+    res.status(201).json(getCompany(Number(info.lastInsertRowid)));
+  } catch (e) {
+    if (String(e.message).includes('UNIQUE')) {
+      return res.status(409).json({ error: 'This careers URL is already in the company list' });
+    }
+    res.status(500).json({ error: String(e.message) });
+  }
+});
+
+companiesRouter.delete('/companies/:id', (req, res) => {
+  const company = getCompany(Number(req.params.id));
+  if (!company) return res.status(404).json({ error: 'Company not found' });
+  db.prepare('DELETE FROM companies WHERE id = ?').run(company.id);
+  res.json({ ok: true });
+});
+
+companiesRouter.post('/companies/:id/scan', (req, res) => {
+  const company = getCompany(Number(req.params.id));
+  if (!company) return res.status(404).json({ error: 'Company not found' });
+  try {
+    const result = scanCompany(company.id, { analyze: req.body?.analyze !== false });
+    res.status(202).json(result);
+  } catch (e) {
+    res.status(500).json({ error: String(e.message) });
+  }
+});
+
+// Jobs imported for one company, newest analysis attached — the results view.
+companiesRouter.get('/companies/:id/jobs', (req, res) => {
+  const company = getCompany(Number(req.params.id));
+  if (!company) return res.status(404).json({ error: 'Company not found' });
+  const rows = db
+    .prepare(
+      `SELECT j.*,
+        (SELECT a.score   FROM analyses a WHERE a.job_id = j.id ORDER BY a.id DESC LIMIT 1) AS score,
+        (SELECT a.verdict FROM analyses a WHERE a.job_id = j.id ORDER BY a.id DESC LIMIT 1) AS verdict,
+        (SELECT a.reasoning FROM analyses a WHERE a.job_id = j.id ORDER BY a.id DESC LIMIT 1) AS reasoning
+       FROM jobs j WHERE j.source = ?
+       ORDER BY score IS NULL, score DESC, j.id DESC`
+    )
+    .all(`company:${company.name}`)
+    .map(parseJob);
+  res.json(rows);
+});

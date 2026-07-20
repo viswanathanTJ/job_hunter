@@ -5,6 +5,7 @@ import os from 'node:os';
 import { CV_MD, PROFILE_YML, PROFILE_MD, RULES_MD, readIfExists } from '../paths.mjs';
 import { db, nowIso, addEvent, getJob, latestAnalysis, setStatus } from '../db.mjs';
 import { enqueue, opQueue, opStart, opEnd, opActive } from './ops.mjs';
+import { getProfile } from './profile.mjs';
 
 const model = () => process.env.CLAUDE_MODEL || 'sonnet';
 
@@ -109,6 +110,9 @@ ${profileMd}
 
 === HARD MATCH RULES ===
 ${rules}
+
+=== USER MATCHING PROFILE (job-hunter Profile page — languages, roles, include/exclude, location, work mode, job type) ===
+${JSON.stringify(getProfile(), null, 2)}
 
 === JOB POSTING ===
 Title: ${job.title}

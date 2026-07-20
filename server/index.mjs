@@ -7,6 +7,8 @@ import { jobsRouter } from './routes/jobs.mjs';
 import { ingestRouter } from './routes/ingest.mjs';
 import { actionsRouter } from './routes/actions.mjs';
 import { settingsRouter } from './routes/settings.mjs';
+import { companiesRouter } from './routes/companies.mjs';
+import { profileRouter } from './routes/profile.mjs';
 
 const app = express();
 app.use(express.json({ limit: '20mb' }));
@@ -16,6 +18,8 @@ app.use('/api', jobsRouter);
 app.use('/api', ingestRouter);
 app.use('/api', actionsRouter);
 app.use('/api', settingsRouter);
+app.use('/api', companiesRouter);
+app.use('/api', profileRouter);
 
 if (fs.existsSync(WEB_DIST)) {
   app.use(express.static(WEB_DIST));
