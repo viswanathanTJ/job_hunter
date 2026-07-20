@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useApi, STATUS_META, relTime } from '../api.js';
-import { StatusBadge, ScoreChip } from '../components.jsx';
+import { StatusBadge, ScoreChip, SourceBadge } from '../components.jsx';
 import { useOpsContext } from '../App.jsx';
 
 export default function Jobs() {
@@ -59,6 +59,7 @@ export default function Jobs() {
               <div>
                 <div className="title">{j.title}</div>
                 <div className="meta">
+                  <SourceBadge source={j.source} />
                   <b>{j.company}</b>
                   {j.location && <span>· {j.location}</span>}
                   {j.posted_at && <span>· posted {j.posted_at}</span>}

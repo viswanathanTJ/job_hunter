@@ -393,6 +393,28 @@ h1.page-title {
   border: 1px solid var(--line);
   color: var(--ink-2);
 }
+.src-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 5px;
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+}
+.src-badge.src-naukri {
+  color: #4a90d9;
+  border-color: rgba(74, 144, 217, 0.4);
+  background: rgba(74, 144, 217, 0.1);
+}
+.src-badge.src-linkedin,
+.src-badge.src-apify {
+  color: #e2a336;
+  border-color: rgba(226, 163, 54, 0.4);
+  background: var(--accent-soft);
+}
 
 /* ============ toolbar / inputs ============ */
 .toolbar {
@@ -602,6 +624,49 @@ textarea.input {
   font-size: 18px;
   font-weight: 600;
   margin: 0 0 12px;
+}
+.settings-block {
+  margin-bottom: 16px;
+}
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.field .input {
+  width: 100%;
+}
+.field.span-2 {
+  grid-column: 1 / -1;
+}
+.check-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+.check {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13.5px;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.check input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+}
+@media (max-width: 640px) {
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
 }
 .proscons {
   display: grid;
