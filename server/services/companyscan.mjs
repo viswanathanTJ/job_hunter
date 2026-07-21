@@ -7,7 +7,7 @@
 //   lever      jobs.lever.co
 //   ashby      jobs.ashbyhq.com
 //   jibe       corporate sites with a /api/jobs endpoint (e.g. jobs.comcast.com)
-import { db, nowIso, addEvent } from '../db.mjs';
+import { db, nowIso, addEvent, parseJob } from '../db.mjs';
 import { importJobs } from './importer.mjs';
 import { analyzeJob } from './claude.mjs';
 import { getProfile } from './profile.mjs';
@@ -31,7 +31,8 @@ export function listCompanies() {
       ...c,
       config: safeParse(c.config),
       last_scan_summary: safeParse(c.last_scan_summary),
-      job_count: db.prepare('SELECT COUNT(*) n FROM jobs WHERE source = ?').get(`company:${c.name}`).n,
+      job_count: db.prepare('SELECT COUNT(*) n FROM jobs WHERE source = ? AND matched = 1').get(`company:${c.name}`).n,
+      total_count: db.prepare('SELECT COUNT(*) n FROM jobs WHERE source = ?').get(`company:${c.name}`).n,
       scanning: opActive(`scan:${c.id}`),
     }));
 }
@@ -327,16 +328,20 @@ export function scanCompany(companyId, { analyze = true } = {}) {
 
       const seen = new Set();
       const unique = found.filter((j) => j.url && j.title && !seen.has(j.url) && seen.add(j.url));
-      const matched = unique.filter((j) => matchJob(j, profile).ok);
-      const result = importJobs(
-        matched.map((j) => ({ ...j, company: company.name, jobLink: j.url })),
-        `company:${company.name}`
-      );
+      const withCompany = (j) => ({ ...j, company: company.name, jobLink: j.url });
+      const matched = [];
+      const unmatched = [];
+      for (const j of unique) (matchJob(j, profile).ok ? matched : unmatched).push(j);
+      const source = `company:${company.name}`;
+      // Store everything: matches full-fat (and analyzed), the rest browsable
+      // under "All found" — never auto-analyzed, so they cost no AI tokens.
+      const result = importJobs(matched.map(withCompany), source, { matched: 1 });
+      const rest = importJobs(unmatched.map(withCompany), source, { matched: 0 });
 
       let queued = 0;
       if (analyze) {
         for (const id of result.ids) {
-          analyzeJob(id).catch(() => {});
+          analyzeJob(id).catch(() => {}); // self-skips jobs that already have an analysis
           queued++;
         }
       }
@@ -346,6 +351,7 @@ export function scanCompany(companyId, { analyze = true } = {}) {
         matched: matched.length,
         created: result.created,
         updated: result.updated,
+        unmatchedStored: rest.created,
         analysesQueued: queued,
       };
       db.prepare('UPDATE companies SET last_scan_at = ?, last_scan_summary = ?, updated_at = ? WHERE id = ?').run(
@@ -366,4 +372,66 @@ export function scanCompany(companyId, { analyze = true } = {}) {
     }
   })();
   return { opKey: key };
+}
+
+/** Queue a scan for every enabled company. Returns queue counts. */
+export function scanAllCompanies({ analyze = true } = {}) {
+  const rows = db.prepare('SELECT id FROM companies WHERE enabled = 1 ORDER BY name COLLATE NOCASE').all();
+  let queued = 0;
+  let skipped = 0;
+  for (const { id } of rows) {
+    const r = scanCompany(id, { analyze });
+    if (r.alreadyRunning) skipped++;
+    else queued++;
+  }
+  return { queued, skipped };
+}
+
+function safeParseArr(s) {
+  try {
+    const v = JSON.parse(s);
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Jobs stored for one company, newest analysis attached — the detail view.
+ *  matched: '1' (default) | '0' | 'all'. q: title/location substring.
+ *  minScore: numeric floor — when set, unscored rows are excluded.
+ *  sort: score (default, unscored last) | created | posted | title. */
+export function companyJobs(company, { matched = '1', q = '', minScore = '', sort = 'score' } = {}) {
+  const where = ['j.source = ?'];
+  const params = [`company:${company.name}`];
+  if (matched === '1' || matched === '0') {
+    where.push('j.matched = ?');
+    params.push(Number(matched));
+  }
+  if (q) {
+    where.push('(j.title LIKE ? OR j.location LIKE ?)');
+    params.push(`%${q}%`, `%${q}%`);
+  }
+  const sorts = {
+    score: 'score IS NULL, score DESC, j.id DESC',
+    created: 'j.id DESC',
+    posted: "j.posted_at = '', j.posted_at DESC, j.id DESC",
+    title: 'j.title COLLATE NOCASE ASC',
+  };
+  let rows = db
+    .prepare(
+      `SELECT j.*,
+        (SELECT a.score     FROM analyses a WHERE a.job_id = j.id ORDER BY a.id DESC LIMIT 1) AS score,
+        (SELECT a.verdict   FROM analyses a WHERE a.job_id = j.id ORDER BY a.id DESC LIMIT 1) AS verdict,
+        (SELECT a.reasoning FROM analyses a WHERE a.job_id = j.id ORDER BY a.id DESC LIMIT 1) AS reasoning,
+        (SELECT a.pros      FROM analyses a WHERE a.job_id = j.id ORDER BY a.id DESC LIMIT 1) AS pros,
+        (SELECT a.cons      FROM analyses a WHERE a.job_id = j.id ORDER BY a.id DESC LIMIT 1) AS cons,
+        (SELECT a.location_check FROM analyses a WHERE a.job_id = j.id ORDER BY a.id DESC LIMIT 1) AS location_check
+       FROM jobs j WHERE ${where.join(' AND ')}
+       ORDER BY ${sorts[sort] || sorts.score}`
+    )
+    .all(...params)
+    .map(parseJob)
+    .map((r) => ({ ...r, pros: safeParseArr(r.pros), cons: safeParseArr(r.cons) }));
+  if (minScore) rows = rows.filter((r) => r.score != null && r.score >= Number(minScore));
+  return rows;
 }

@@ -85,5 +85,17 @@ db.prepare(
 importJobs([unJob], 'company:X', { matched: 0 });
 check('analyzed job is never demoted', flagOf(unId) === 1);
 
+// 11. Company detail view: matched default, filters, sort
+const { companyJobs } = await import('./services/companyscan.mjs');
+importJobs([{ title: 'Stored Only', jobLink: 'https://x.test/jobs/stored-2', company: 'X' }], 'company:X', { matched: 0 });
+const coJobs = (f) => companyJobs({ name: 'X' }, f);
+check('company view defaults to matched only', coJobs({}).length === 1 && coJobs({})[0].matched === 1);
+check('all view shows both rows', coJobs({ matched: 'all' }).length === 2);
+check('unmatched view shows stored-only row', coJobs({ matched: '0' }).length === 1 && coJobs({ matched: '0' })[0].title === 'Stored Only');
+check('scored rows sort first by default', coJobs({ matched: 'all' })[0].score === 3.5);
+check('pros/cons parsed to arrays', coJobs({})[0].pros[0] === 'cheap pro' && coJobs({})[0].cons.length === 1);
+check('minScore drops unscored rows', coJobs({ matched: 'all', minScore: '3' }).length === 1);
+check('q filters by title', coJobs({ matched: 'all', q: 'Stored' })[0].title === 'Stored Only');
+
 console.log(failures === 0 ? '\nALL SMOKE TESTS PASSED' : `\n${failures} FAILURES`);
 process.exit(failures === 0 ? 0 : 1);
