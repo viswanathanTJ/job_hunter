@@ -16,10 +16,10 @@ const LIST_SELECT = `
 
 jobsRouter.get('/stats', (req, res) => {
   const byStatus = Object.fromEntries(STATUSES.map((s) => [s, 0]));
-  for (const row of db.prepare('SELECT status, COUNT(*) n FROM jobs GROUP BY status').all()) {
+  for (const row of db.prepare('SELECT status, COUNT(*) n FROM jobs WHERE matched = 1 GROUP BY status').all()) {
     byStatus[row.status] = row.n;
   }
-  const total = db.prepare('SELECT COUNT(*) n FROM jobs').get().n;
+  const total = db.prepare('SELECT COUNT(*) n FROM jobs WHERE matched = 1').get().n;
   const analyzed = db.prepare('SELECT COUNT(DISTINCT job_id) n FROM analyses').get().n;
   const avgScore =
     db
@@ -49,9 +49,13 @@ jobsRouter.get('/stats', (req, res) => {
 });
 
 jobsRouter.get('/jobs', (req, res) => {
-  const { status, q, tag, minScore, sort = 'created', dir = 'desc' } = req.query;
+  const { status, q, tag, minScore, sort = 'created', dir = 'desc', matched = '1' } = req.query;
   const where = [];
   const params = [];
+  if (matched !== 'all') {
+    where.push('j.matched = ?');
+    params.push(Number(matched) ? 1 : 0);
+  }
   if (status && STATUSES.includes(status)) {
     where.push('j.status = ?');
     params.push(status);

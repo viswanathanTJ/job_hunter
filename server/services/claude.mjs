@@ -204,11 +204,11 @@ export function analyzeJob(jobId, { force = false } = {}) {
 /** Queue analyses for all jobs missing one. Returns the number queued. */
 export function analyzeAll({ force = false } = {}) {
   const rows = force
-    ? db.prepare("SELECT id FROM jobs WHERE status NOT IN ('discarded', 'rejected')").all()
+    ? db.prepare("SELECT id FROM jobs WHERE status NOT IN ('discarded', 'rejected') AND matched = 1").all()
     : db
         .prepare(
           `SELECT j.id FROM jobs j
-           WHERE j.status NOT IN ('discarded', 'rejected')
+           WHERE j.status NOT IN ('discarded', 'rejected') AND j.matched = 1
              AND NOT EXISTS (SELECT 1 FROM analyses a WHERE a.job_id = j.id)`
         )
         .all();

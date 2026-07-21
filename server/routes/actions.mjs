@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import express from 'express';
-import { getJob, latestAnalysis, latestResume, setStatus, jobWithDetails } from '../db.mjs';
+import { db, nowIso, getJob, latestAnalysis, latestResume, setStatus, jobWithDetails } from '../db.mjs';
 import { analyzeJob, analyzeAll } from '../services/claude.mjs';
 import { generateResume } from '../services/resume.mjs';
 import { markApplied } from '../services/tracker.mjs';
@@ -21,7 +21,10 @@ actionsRouter.post('/ops/cancel', (req, res) => {
 
 actionsRouter.post('/jobs/:id/analyze', (req, res) => {
   const id = Number(req.params.id);
-  if (!getJob(id)) return res.status(404).json({ error: 'Job not found' });
+  const job = getJob(id);
+  if (!job) return res.status(404).json({ error: 'Job not found' });
+  // Rescue flow: explicitly analyzing a stored-only job promotes it to matched.
+  if (!job.matched) db.prepare('UPDATE jobs SET matched = 1, updated_at = ? WHERE id = ?').run(nowIso(), id);
   const force = Boolean(req.body?.force);
   if (!force && latestAnalysis(id)) {
     return res.json({ skipped: true, analysis: latestAnalysis(id) });
