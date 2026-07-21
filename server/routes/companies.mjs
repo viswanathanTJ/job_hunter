@@ -1,17 +1,30 @@
 import express from 'express';
-import { db, nowIso, parseJob } from '../db.mjs';
+import { db, nowIso } from '../db.mjs';
 import {
   listCompanies,
   getCompany,
   detectAts,
   deriveName,
   scanCompany,
+  scanAllCompanies,
+  companyJobs,
 } from '../services/companyscan.mjs';
 
 export const companiesRouter = express.Router();
 
 companiesRouter.get('/companies', (req, res) => {
   res.json(listCompanies());
+});
+
+companiesRouter.post('/companies/scan-all', (req, res) => {
+  res.status(202).json(scanAllCompanies({ analyze: req.body?.analyze !== false }));
+});
+
+// Single company in the same enriched shape as the list — the detail header.
+companiesRouter.get('/companies/:id(\\d+)', (req, res) => {
+  const company = listCompanies().find((c) => c.id === Number(req.params.id));
+  if (!company) return res.status(404).json({ error: 'Company not found' });
+  res.json(company);
 });
 
 companiesRouter.post('/companies', (req, res) => {
@@ -59,20 +72,9 @@ companiesRouter.post('/companies/:id/scan', (req, res) => {
   }
 });
 
-// Jobs imported for one company, newest analysis attached — the results view.
+// Jobs stored for one company, filterable — the detail-page list view.
 companiesRouter.get('/companies/:id/jobs', (req, res) => {
   const company = getCompany(Number(req.params.id));
   if (!company) return res.status(404).json({ error: 'Company not found' });
-  const rows = db
-    .prepare(
-      `SELECT j.*,
-        (SELECT a.score   FROM analyses a WHERE a.job_id = j.id ORDER BY a.id DESC LIMIT 1) AS score,
-        (SELECT a.verdict FROM analyses a WHERE a.job_id = j.id ORDER BY a.id DESC LIMIT 1) AS verdict,
-        (SELECT a.reasoning FROM analyses a WHERE a.job_id = j.id ORDER BY a.id DESC LIMIT 1) AS reasoning
-       FROM jobs j WHERE j.source = ?
-       ORDER BY score IS NULL, score DESC, j.id DESC`
-    )
-    .all(`company:${company.name}`)
-    .map(parseJob);
-  res.json(rows);
+  res.json(companyJobs(company, req.query));
 });
