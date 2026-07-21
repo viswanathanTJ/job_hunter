@@ -1,61 +1,19 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { useApi, apiPost, apiDelete, apiPatch, relTime, STATUS_META } from '../api.js';
-import { ScoreChip, StatusBadge } from '../components.jsx';
+import { Link, useNavigate } from 'react-router-dom';
+import { useApi, apiPost, apiDelete, relTime } from '../api.js';
 import { useOpsContext } from '../App.jsx';
-
-function CompanyJobs({ company, pulse }) {
-  const { data: jobs, reload } = useApi(`/companies/${company.id}/jobs`, [pulse]);
-  const setStatus = (jobId, status) =>
-    apiPatch(`/jobs/${jobId}`, { status }).then(reload).catch((e) => alert(e.message));
-
-  if (!jobs) return <div className="empty">Loading results…</div>;
-  if (jobs.length === 0)
-    return <div className="empty">No matching jobs imported yet — run a scan. Only jobs matching your Profile are kept.</div>;
-  return (
-    <div className="job-rows">
-      {jobs.map((j) => (
-        <div className="job-row" key={j.id}>
-          <div>
-            <div className="title">
-              <Link to={`/jobs/${j.id}`}>{j.title}</Link>
-            </div>
-            <div className="meta">
-              {j.location && <span>{j.location}</span>}
-              {j.posted_at && <span>· posted {j.posted_at}</span>}
-              <a href={j.url} target="_blank" rel="noreferrer">
-                · original posting ↗
-              </a>
-            </div>
-            {j.reasoning && <div className="meta" style={{ marginTop: 4 }}>{String(j.reasoning).slice(0, 220)}</div>}
-          </div>
-          <div className="right" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <ScoreChip score={j.score} verdict={j.verdict} />
-            <StatusBadge status={j.status} />
-            <select className="input" value={j.status} onChange={(e) => setStatus(j.id, e.target.value)} title="Update application status">
-              {Object.entries(STATUS_META).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 export default function Companies() {
   const { ops, pulse } = useOpsContext();
   const { data: companies, reload } = useApi('/companies', [pulse]);
+  const navigate = useNavigate();
   const [showAdd, setShowAdd] = useState(false);
   const [url, setUrl] = useState('');
   const [name, setName] = useState('');
-  const [open, setOpen] = useState(null);
   const [busy, setBusy] = useState(false);
 
   const scanning = (c) => c.scanning || ops.some((o) => o.key === `scan:${c.id}` && ['queued', 'running'].includes(o.state));
+  const anyScanning = (companies || []).some(scanning);
 
   const addCompany = async () => {
     if (!url.trim()) return alert('Paste the company careers/jobs link first');
@@ -68,8 +26,8 @@ export default function Companies() {
       reload();
       if (confirm(`${created.name} added (${created.ats}). Scan for jobs now?`)) {
         await apiPost(`/companies/${created.id}/scan`, {});
-        setOpen(created.id);
       }
+      navigate(`/companies/${created.id}`);
     } catch (e) {
       alert(e.message);
     } finally {
@@ -77,26 +35,44 @@ export default function Companies() {
     }
   };
 
-  const scan = (c) =>
-    apiPost(`/companies/${c.id}/scan`, {})
-      .then(() => setOpen(c.id))
+  const scan = (c, e) => {
+    e.stopPropagation();
+    apiPost(`/companies/${c.id}/scan`, {}).catch((err) => alert(err.message));
+  };
+
+  const scanAll = () =>
+    apiPost('/companies/scan-all', {})
+      .then(({ queued, skipped }) => {
+        if (skipped) alert(`${queued} scan${queued === 1 ? '' : 's'} queued · ${skipped} already running`);
+      })
       .catch((e) => alert(e.message));
 
-  const remove = (c) => {
+  const remove = (c, e) => {
+    e.stopPropagation();
     if (!confirm(`Remove ${c.name} from the company list? (Imported jobs stay.)`)) return;
-    apiDelete(`/companies/${c.id}`).then(reload).catch((e) => alert(e.message));
+    apiDelete(`/companies/${c.id}`).then(reload).catch((err) => alert(err.message));
   };
 
   return (
     <>
       <h1 className="page-title">Companies</h1>
       <p className="page-sub">
-        Tracked career sites. Scan pulls every posting, keeps only jobs matching your <Link to="/profile">Profile</Link>, then scores each match with AI.
+        Tracked career sites. Scan pulls every posting, stores it all, and scores the ones matching your{' '}
+        <Link to="/profile">Profile</Link> with AI. Click a company to browse its jobs.
       </p>
 
       <div className="toolbar">
         <button className="btn" onClick={() => setShowAdd(!showAdd)}>
           {showAdd ? 'Cancel' : '+ Add Company'}
+        </button>
+        <button className="btn" disabled={anyScanning || !(companies || []).length} onClick={scanAll} title="Queue a scan for every company">
+          {anyScanning ? (
+            <>
+              <span className="spinner" /> Scanning…
+            </>
+          ) : (
+            'Scan All'
+          )}
         </button>
       </div>
 
@@ -117,52 +93,48 @@ export default function Companies() {
 
       <div className="job-rows">
         {!companies && <div className="empty">Loading…</div>}
+        {companies && companies.length === 0 && <div className="empty">No companies yet — add a careers link above.</div>}
         {(companies || []).map((c) => {
           const s = c.last_scan_summary || {};
           return (
-            <div key={c.id}>
-              <div className="job-row">
-                <div>
-                  <div className="title">
-                    <a href={c.careers_url} target="_blank" rel="noreferrer" title="Open careers page">
-                      {c.name} ↗
-                    </a>{' '}
-                    <span className="tag">{c.ats}</span>
-                  </div>
-                  <div className="meta">
-                    <span>{c.job_count} matched job{c.job_count === 1 ? '' : 's'}</span>
-                    {c.last_scan_at ? (
-                      <span>
-                        · last scan {relTime(c.last_scan_at)} — found {s.found ?? '?'}, matched {s.matched ?? '?'}, new {s.created ?? '?'}
-                      </span>
-                    ) : (
-                      <span>· never scanned</span>
-                    )}
-                  </div>
+            <div
+              className="job-row"
+              key={c.id}
+              style={{ cursor: 'pointer' }}
+              onClick={() => navigate(`/companies/${c.id}`)}
+              title="Open company jobs"
+            >
+              <div>
+                <div className="title">
+                  {c.name} <span className="tag">{c.ats}</span>
                 </div>
-                <div className="right" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <button className="btn small" disabled={scanning(c)} onClick={() => scan(c)}>
-                    {scanning(c) ? (
-                      <>
-                        <span className="spinner" /> Scanning…
-                      </>
-                    ) : (
-                      'Scan'
-                    )}
-                  </button>
-                  <button className="btn small" onClick={() => setOpen(open === c.id ? null : c.id)}>
-                    {open === c.id ? 'Hide results' : 'Results'}
-                  </button>
-                  <button className="op-x" title="Remove company" onClick={() => remove(c)}>
-                    ✕
-                  </button>
+                <div className="meta">
+                  <span>
+                    {c.job_count} matched · {c.total_count} found
+                  </span>
+                  {c.last_scan_at ? (
+                    <span>
+                      · last scan {relTime(c.last_scan_at)} — found {s.found ?? '?'}, matched {s.matched ?? '?'}, new {s.created ?? '?'}
+                    </span>
+                  ) : (
+                    <span>· never scanned</span>
+                  )}
                 </div>
               </div>
-              {open === c.id && (
-                <div style={{ margin: '4px 0 16px 16px' }}>
-                  <CompanyJobs company={c} pulse={pulse} />
-                </div>
-              )}
+              <div className="right" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button className="btn small" disabled={scanning(c)} onClick={(e) => scan(c, e)}>
+                  {scanning(c) ? (
+                    <>
+                      <span className="spinner" /> Scanning…
+                    </>
+                  ) : (
+                    'Scan'
+                  )}
+                </button>
+                <button className="op-x" title="Remove company" onClick={(e) => remove(c, e)}>
+                  ✕
+                </button>
+              </div>
             </div>
           );
         })}

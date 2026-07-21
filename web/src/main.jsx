@@ -8,6 +8,7 @@ import Pipeline from './pages/Pipeline.jsx';
 import JobDetail from './pages/JobDetail.jsx';
 import Settings from './pages/Settings.jsx';
 import Companies from './pages/Companies.jsx';
+import CompanyDetail from './pages/CompanyDetail.jsx';
 import Profile from './pages/Profile.jsx';
 import './styles.css';
 
@@ -21,6 +22,7 @@ const router = createBrowserRouter([
       { path: 'pipeline', element: <Pipeline /> },
       { path: 'jobs/:id', element: <JobDetail /> },
       { path: 'companies', element: <Companies /> },
+      { path: 'companies/:id', element: <CompanyDetail /> },
       { path: 'profile', element: <Profile /> },
       { path: 'settings', element: <Settings /> },
     ],
