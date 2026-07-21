@@ -90,6 +90,14 @@ if (!fetchRunCols.includes('source')) {
   db.exec("ALTER TABLE fetch_runs ADD COLUMN source TEXT NOT NULL DEFAULT 'linkedin'");
 }
 
+// Migration: company scans now store every found posting; `matched` separates
+// profile matches (1 — the default, and all pre-existing rows) from
+// stored-only rows (0). Guarded so existing databases upgrade in place.
+const jobCols = db.prepare('PRAGMA table_info(jobs)').all().map((c) => c.name);
+if (!jobCols.includes('matched')) {
+  db.exec('ALTER TABLE jobs ADD COLUMN matched INTEGER NOT NULL DEFAULT 1');
+}
+
 // Companies sub-module: tracked career sites the user can scan on demand.
 db.exec(`
 CREATE TABLE IF NOT EXISTS companies (

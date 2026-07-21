@@ -62,5 +62,28 @@ db.prepare(
 const a = latestAnalysis(id);
 check('analysis round-trip', a.score === 4.2 && a.pros.length === 2 && a.verdict === 'YES');
 
+// 8. Matched flag: company scans store everything; unmatched rows carry matched=0
+const unJob = { title: 'Unmatched Role', jobLink: 'https://x.test/jobs/unmatched-1', company: 'X' };
+const un = importJobs([unJob], 'company:X', { matched: 0 });
+const unId = un.ids[0];
+const flagOf = (jobId) => db.prepare('SELECT matched FROM jobs WHERE id = ?').get(jobId).matched;
+check('default import is matched=1', flagOf(id) === 1);
+check('unmatched import stores matched=0', flagOf(unId) === 0);
+
+// 9. Promotion: a matched re-import flips 0 → 1
+importJobs([unJob], 'company:X', { matched: 1 });
+check('re-import promotes to matched=1', flagOf(unId) === 1);
+
+// 10. Demotion only while never analyzed
+importJobs([unJob], 'company:X', { matched: 0 });
+check('unanalyzed job demotes to matched=0', flagOf(unId) === 0);
+importJobs([unJob], 'company:X', { matched: 1 });
+db.prepare(
+  `INSERT INTO analyses (job_id, score, verdict, pros, cons, reasoning, location_check, model, created_at)
+   VALUES (?, 3.5, 'NO', '["cheap pro"]', '["one con"]', 'meh', '', 'test', ?)`
+).run(unId, new Date().toISOString());
+importJobs([unJob], 'company:X', { matched: 0 });
+check('analyzed job is never demoted', flagOf(unId) === 1);
+
 console.log(failures === 0 ? '\nALL SMOKE TESTS PASSED' : `\n${failures} FAILURES`);
 process.exit(failures === 0 ? 0 : 1);
