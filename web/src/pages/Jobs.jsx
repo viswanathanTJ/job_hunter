@@ -1,15 +1,34 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { useApi, STATUS_META, relTime } from '../api.js';
+import { Link, useNavigate } from 'react-router-dom';
+import { useApi, apiPost, STATUS_META, relTime } from '../api.js';
 import { StatusBadge, ScoreChip, SourceBadge } from '../components.jsx';
 import { useOpsContext } from '../App.jsx';
 
 export default function Jobs() {
   const { ops, pulse } = useOpsContext();
+  const navigate = useNavigate();
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('');
   const [minScore, setMinScore] = useState('');
   const [sort, setSort] = useState('created');
+  const [showAdd, setShowAdd] = useState(false);
+  const [addUrl, setAddUrl] = useState('');
+  const [adding, setAdding] = useState(false);
+
+  const addJob = async () => {
+    if (!addUrl.trim()) return;
+    setAdding(true);
+    try {
+      const r = await apiPost('/jobs/add', { url: addUrl.trim() });
+      setAddUrl('');
+      setShowAdd(false);
+      navigate(`/jobs/${r.job.id}`);
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setAdding(false);
+    }
+  };
 
   const params = new URLSearchParams();
   if (q) params.set('q', q);
@@ -24,6 +43,27 @@ export default function Jobs() {
     <>
       <h1 className="page-title">Jobs</h1>
       <p className="page-sub">Everything fetched or imported — search, filter, and drill in.</p>
+
+      <div className="toolbar">
+        <button className="btn" onClick={() => setShowAdd(!showAdd)}>
+          {showAdd ? 'Cancel' : '+ Add Job URL'}
+        </button>
+      </div>
+
+      {showAdd && (
+        <div className="toolbar" style={{ alignItems: 'center' }}>
+          <input
+            className="input grow"
+            placeholder="Paste a job posting URL (Workday, Greenhouse, Lever, Ashby, or any job page)…"
+            value={addUrl}
+            onChange={(e) => setAddUrl(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && addJob()}
+          />
+          <button className="btn" disabled={adding} onClick={addJob}>
+            {adding ? 'Fetching…' : 'Add & Analyze'}
+          </button>
+        </div>
+      )}
 
       <div className="toolbar">
         <input className="input grow" placeholder="Search title, company, location, description…" value={q} onChange={(e) => setQ(e.target.value)} />

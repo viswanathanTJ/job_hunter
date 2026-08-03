@@ -1,7 +1,30 @@
 import express from 'express';
 import { db, STATUSES, nowIso, addEvent, getJob, jobWithDetails, parseJob, setStatus } from '../db.mjs';
+import { fetchJobFromUrl } from '../services/jobfetch.mjs';
+import { importJobs } from '../services/importer.mjs';
+import { analyzeJob } from '../services/claude.mjs';
 
 export const jobsRouter = express.Router();
+
+// Manual add: paste any job URL — the posting is fetched (ATS detail API or
+// page fallback), imported as matched, and queued for analysis.
+jobsRouter.post('/jobs/add', async (req, res) => {
+  const url = String(req.body?.url || '').trim();
+  if (!url || !/^https?:\/\//i.test(url)) {
+    return res.status(400).json({ error: 'Paste a full job posting URL (https://…)' });
+  }
+  try {
+    const fetched = await fetchJobFromUrl(url);
+    if (req.body?.company) fetched.company = String(req.body.company).trim();
+    const result = importJobs([{ ...fetched, url }], 'manual', { matched: 1 });
+    const id = result.ids[0];
+    if (!id) return res.status(422).json({ error: 'Could not extract a title from that posting' });
+    if (req.body?.analyze !== false) analyzeJob(id).catch(() => {});
+    res.status(result.created ? 201 : 200).json({ created: result.created > 0, job: jobWithDetails(id) });
+  } catch (e) {
+    res.status(422).json({ error: String(e.message || e) });
+  }
+});
 
 const LIST_SELECT = `
   SELECT j.*,
