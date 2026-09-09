@@ -15,7 +15,11 @@ function ListField({ label, hint, value, onChange, rows = 1 }) {
   return (
     <label className="field" style={{ display: 'block', marginBottom: 14 }}>
       <div style={{ fontWeight: 600, marginBottom: 4 }}>{label}</div>
-      {hint && <div className="meta" style={{ marginBottom: 4 }}>{hint}</div>}
+      {hint && (
+        <div className="meta" style={{ marginBottom: 4 }}>
+          {hint}
+        </div>
+      )}
       {rows > 1 ? (
         <textarea className="input" style={{ width: '100%' }} rows={rows} value={value} onChange={(e) => onChange(e.target.value)} />
       ) : (
@@ -102,17 +106,29 @@ export default function Profile() {
   };
 
   return (
-    <>
-      <h1 className="page-title">Profile</h1>
-      <p className="page-sub">
-        Everything the app matches and filters on lives here — company scans keep only jobs that pass these rules, and the AI analyzer
-        reads this profile on every evaluation.
-      </p>
+    <div className="page">
+      <div className="page-head">
+        <h1 className="page-title">Profile</h1>
+        <p className="page-sub">
+          Everything the app matches and filters on lives here — company scans keep only jobs that pass these rules, and the AI analyzer reads this
+          profile on every evaluation.
+        </p>
+      </div>
 
-      <div style={{ maxWidth: 760 }}>
-        <ListField label="Languages I know" hint="Programming languages / core stacks, comma-separated." value={form.languages} onChange={set('languages')} />
+      <div className="scroll-box" style={{ maxWidth: 760 }}>
+        <ListField
+          label="Languages I know"
+          hint="Programming languages / core stacks, comma-separated."
+          value={form.languages}
+          onChange={set('languages')}
+        />
         <ListField label="Roles I'm interested in" hint="Target role titles, comma-separated." value={form.roles} onChange={set('roles')} />
-        <ListField label="Topics I'm interested in" hint="Domains and technologies you want to work on." value={form.topics} onChange={set('topics')} />
+        <ListField
+          label="Topics I'm interested in"
+          hint="Domains and technologies you want to work on."
+          value={form.topics}
+          onChange={set('topics')}
+        />
 
         <ListField
           label="Include in job matches"
@@ -129,8 +145,18 @@ export default function Profile() {
           rows={3}
         />
 
-        <ListField label="Job location — country" hint="Used for country-level filtering on portals that support it (e.g. Workday)." value={form.country} onChange={set('country')} />
-        <ListField label="Job location — cities" hint="On-site/hybrid jobs must be in one of these cities." value={form.cities} onChange={set('cities')} />
+        <ListField
+          label="Job location — country"
+          hint="Used for country-level filtering on portals that support it (e.g. Workday)."
+          value={form.country}
+          onChange={set('country')}
+        />
+        <ListField
+          label="Job location — cities"
+          hint="On-site/hybrid jobs must be in one of these cities."
+          value={form.cities}
+          onChange={set('cities')}
+        />
         <CheckGroup label="Work mode" options={WORK_MODES} selected={form.workModes} onToggle={toggle('workModes')} />
         <label style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 14, cursor: 'pointer' }}>
           <input type="checkbox" checked={form.allowRemote} onChange={() => set('allowRemote')(!form.allowRemote)} />
@@ -155,6 +181,6 @@ export default function Profile() {
           {saved && <span style={{ color: 'var(--accent)' }}>Saved ✓</span>}
         </div>
       </div>
-    </>
+    </div>
   );
 }

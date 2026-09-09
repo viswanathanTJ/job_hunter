@@ -15,7 +15,14 @@ export default function App() {
     } catch {}
   }, [theme]);
 
-  const running = opsState.ops.filter((o) => ['running', 'queued', 'cancelling'].includes(o.state));
+  const active = opsState.ops.filter((o) => ['running', 'queued', 'cancelling'].includes(o.state));
+  // Running first — with a parallel pool the backlog can be long, so only the
+  // in-flight ops plus a few upcoming ones are listed.
+  const running = [...active].sort((a, b) => (a.state === 'queued' ? 1 : 0) - (b.state === 'queued' ? 1 : 0));
+  const nowRunning = active.filter((o) => o.state === 'running').length;
+  const waiting = active.filter((o) => o.state === 'queued').length;
+  const LIST_CAP = 12;
+  const shown = running.slice(0, LIST_CAP);
 
   return (
     <OpsContext.Provider value={opsState}>
@@ -51,11 +58,15 @@ export default function App() {
             </NavLink>
           </nav>
           <div className="foot">
-            {running.length > 0 && (
+            {active.length > 0 && (
               <div className="live-ops">
-                {running.map((o) => (
+                <div className="queue-head">
+                  <span>{nowRunning} running</span>
+                  {waiting > 0 && <span>{waiting} queued</span>}
+                </div>
+                {shown.map((o) => (
                   <div className="row" key={o.key}>
-                    <span className="spinner" />
+                    {o.state === 'queued' ? <span className="queue-dot" /> : <span className="spinner" />}
                     <span style={{ flex: 1 }}>
                       {o.state === 'cancelling'
                         ? 'STOPPING…'
@@ -70,13 +81,15 @@ export default function App() {
                     )}
                   </div>
                 ))}
+                {active.length > shown.length && <div className="row more">+{active.length - shown.length} more…</div>}
+                {waiting > 0 && (
+                  <button className="queue-clear" onClick={() => apiPost('/ops/cancel-queued').catch(() => {})}>
+                    Cancel {waiting} queued
+                  </button>
+                )}
               </div>
             )}
-            <button
-              className="btn small theme-toggle"
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              title="Toggle theme"
-            >
+            <button className="btn small theme-toggle" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} title="Toggle theme">
               {theme === 'dark' ? '☀ Light' : '● Dark'}
             </button>
           </div>

@@ -23,10 +23,16 @@ export default function Pipeline() {
   };
 
   return (
-    <>
-      <h1 className="page-title">Pipeline</h1>
-      <p className="page-sub">Drag cards between stages, or use a card's detail page for guarded transitions.</p>
-      {error && <div className="error-line" style={{ marginBottom: 12 }}>{error}</div>}
+    <div className="page">
+      <div className="page-head">
+        <h1 className="page-title">Pipeline</h1>
+        <p className="page-sub">Drag cards between stages, or use a card's detail page for guarded transitions.</p>
+        {error && (
+          <div className="error-line" style={{ marginBottom: 12 }}>
+            {error}
+          </div>
+        )}
+      </div>
 
       <div className="kanban">
         {COLUMNS.map((col) => {
@@ -51,26 +57,28 @@ export default function Pipeline() {
                 <span className="microlabel">{STATUS_META[col].label}</span>
                 <span className="count">{colJobs.length}</span>
               </div>
-              {colJobs.map((j) => (
-                <Link
-                  key={j.id}
-                  to={`/jobs/${j.id}`}
-                  className="kcard"
-                  draggable
-                  onDragStart={(e) => e.dataTransfer.setData('text/job-id', String(j.id))}
-                >
-                  <div className="t">{j.title}</div>
-                  <div className="c">{j.company}</div>
-                  <div className="foot">
-                    <ScoreChip score={j.score} />
-                    {j.resume_pdf && <span className="tag">CV ✓</span>}
-                  </div>
-                </Link>
-              ))}
+              <div className="col-body">
+                {colJobs.map((j) => (
+                  <Link
+                    key={j.id}
+                    to={`/jobs/${j.id}`}
+                    className="kcard"
+                    draggable
+                    onDragStart={(e) => e.dataTransfer.setData('text/job-id', String(j.id))}
+                  >
+                    <div className="t">{j.title}</div>
+                    <div className="c">{j.company}</div>
+                    <div className="foot">
+                      <ScoreChip score={j.score} />
+                      {j.resume_pdf && <span className="tag">CV ✓</span>}
+                    </div>
+                  </Link>
+                ))}
+              </div>
             </div>
           );
         })}
       </div>
-    </>
+    </div>
   );
 }

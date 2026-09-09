@@ -1,5 +1,6 @@
 import express from 'express';
 import { getSettings, saveSettings } from '../services/settings.mjs';
+import { CONCURRENCY_MIN, CONCURRENCY_MAX } from '../services/ops.mjs';
 
 export const settingsRouter = express.Router();
 
@@ -35,6 +36,9 @@ function sanitize(cur, b) {
   if (b.claudeModel !== undefined) patch.claudeModel = str(b.claudeModel, cur.claudeModel);
   if (b.resumePdfName !== undefined) patch.resumePdfName = str(b.resumePdfName, cur.resumePdfName);
   if (b.fetchCount !== undefined) patch.fetchCount = num(b.fetchCount, 1, 200, cur.fetchCount);
+  if (b.aiConcurrency !== undefined) {
+    patch.aiConcurrency = num(b.aiConcurrency, CONCURRENCY_MIN, CONCURRENCY_MAX, cur.aiConcurrency);
+  }
   // Only persist a token when a non-empty value is provided (blank = keep existing).
   if (typeof b.apifyToken === 'string' && b.apifyToken.trim()) patch.apifyToken = b.apifyToken.trim();
 
