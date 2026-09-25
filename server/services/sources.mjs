@@ -100,6 +100,18 @@ export const linkedinSource = {
 // two common input styles, and (b) read a wide set of possible output keys.
 // The actor id is required (no safe default) — set APIFY_NAUKRI_ACTOR in .env.
 
+const NAUKRI_BASE = 'https://www.naukri.com';
+
+// The scraper reports jdURL as a site-relative path ("/job-listings-…"). Stored
+// as-is it resolves against the dashboard's own origin, so "Open posting" lands
+// on localhost. Absolutize on the way in, where the base is known.
+const naukriAbs = (u) => {
+  const s = String(u || '').trim();
+  if (!s) return '';
+  if (/^https?:\/\//i.test(s)) return s;
+  return s.startsWith('/') ? NAUKRI_BASE + s : `${NAUKRI_BASE}/${s}`;
+};
+
 const naukriSlug = (s) =>
   s
     .toLowerCase()
@@ -163,7 +175,7 @@ export const naukriSource = {
     const seen = new Set();
     const cutoff = recentCutoff();
     for (const j of items || []) {
-      const jobLink = j.jdURL || j.jobUrl || j.url || j.link || j.jobLink || '';
+      const jobLink = naukriAbs(j.jdURL || j.jobUrl || j.url || j.link || j.jobLink || '');
       if (!jobLink || seen.has(jobLink)) continue;
       const rawDesc = j.jobDescription || j.description || j.jobDescriptionHtml || j.jd || '';
       const jobDescription = /<[a-z][\s\S]*>/i.test(rawDesc) ? stripHtml(rawDesc) : String(rawDesc).trim();

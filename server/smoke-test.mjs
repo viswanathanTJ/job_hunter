@@ -543,6 +543,13 @@ const naukriItem = {
 };
 const [parsedNaukri] = naukriSource.parseItems([naukriItem]);
 check('the naukri parser reads the job url', parsedNaukri.jobLink === naukriItem.jdURL);
+// A site-relative jdURL must be absolutized, or "Open posting" resolves against
+// the dashboard's own origin and lands on localhost.
+const [relNaukri] = naukriSource.parseItems([
+  { ...naukriItem, jdURL: '/job-listings-backend-engineer-acme-bengaluru-1-to-5-years-240926501649' },
+]);
+check('a relative naukri url is absolutized', relNaukri.jobLink === 'https://www.naukri.com/job-listings-backend-engineer-acme-bengaluru-1-to-5-years-240926501649');
+check('an absolute naukri url is left alone', parsedNaukri.jobLink.startsWith('https://www.naukri.com/'));
 check('the naukri parser reads locationLabel', parsedNaukri.location === 'Bengaluru, Chennai');
 check('the naukri parser reads the experience label', parsedNaukri.seniorityLevel === '3-6 Yrs');
 check('the naukri parser passes the stated minimum years through', parsedNaukri.yoeMin === 3);
