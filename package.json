@@ -10,7 +10,6 @@
     "smoke": "node server/smoke-test.mjs"
   },
   "dependencies": {
-    "express": "^4.19.2",
-    "playwright": "^1.63.0"
+    "express": "^4.19.2"
   }
 }

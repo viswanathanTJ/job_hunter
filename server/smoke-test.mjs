@@ -588,5 +588,41 @@ for (const key of ['MASTER_RESUME', 'CV_MD', 'PROFILE_YML', 'PROFILE_MD', 'MERGE
 check('the master resume is not empty', paths.readIfExists(paths.MASTER_RESUME).length > 0);
 check('the canonical CV is not empty', paths.readIfExists(paths.CV_MD).length > 0);
 
+// 29. The LaTeX resume pipeline. verifyPdf re-implements build-tex.sh's own
+// gate, so a tailored resume can never ship weaker than the base build: one
+// page, A4, and a text layer an ATS can actually read.
+const { verifyPdf, tectonicPath } = await import('./services/latex.mjs');
+const basePdf = nodePath.join(paths.RESUME_ROOT, 'resume.pdf');
+
+check('tectonic is discoverable', Boolean(tectonicPath()));
+const baseCheck = verifyPdf(basePdf, { pageBudget: 1 });
+check('the base resume passes its own gate', baseCheck.ok === true);
+check('the base resume is reported as one page', baseCheck.pages === 1);
+
+const overBudget = verifyPdf(basePdf, { pageBudget: 0 });
+check('a page budget it misses is rejected', overBudget.ok === false);
+check('the rejection says how many pages it found', overBudget.reason.includes('1 page'));
+
+const missing = verifyPdf(nodePath.join(paths.RESUME_ROOT, 'no-such-file.pdf'), { pageBudget: 1 });
+check('a missing pdf is rejected, not thrown on', missing.ok === false);
+
+// The builder registry is the seam for adding another pipeline later; today
+// latex is the only one and the default.
+const { RESUME_BUILDERS, activeBuilder } = await import('./services/resume-builders.mjs');
+check('latex is a registered builder', typeof RESUME_BUILDERS.latex === 'object');
+check('the active builder is latex', activeBuilder().key === 'latex');
+check('the builder names its source file', activeBuilder().sourceName === 'resume.tex');
+check('the builder points at the v2 master', activeBuilder().masterPath().endsWith('resume-v2.tex'));
+check('the master tex exists', fsMod.existsSync(activeBuilder().masterPath()));
+
+// cleanSource must reject prose the same way the HTML pipeline did, or a
+// refusal would be written to disk as if it were a resume.
+const good = '\\documentclass{article}\n\\begin{document}hi\\end{document}';
+check('a real tex document survives cleaning', activeBuilder().cleanSource(good).startsWith('\\documentclass'));
+check('a fenced tex document is unwrapped', activeBuilder().cleanSource('```latex\n' + good + '\n```').startsWith('\\documentclass'));
+let prosethrew = false;
+try { activeBuilder().cleanSource('I cannot help with that.'); } catch { prosethrew = true; }
+check('prose is rejected rather than written out', prosethrew);
+
 console.log(failures === 0 ? '\nALL SMOKE TESTS PASSED' : `\n${failures} FAILURES`);
 process.exit(failures === 0 ? 0 : 1);

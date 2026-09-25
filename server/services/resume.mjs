@@ -1,12 +1,17 @@
-// Tailored resume generation: claude -p tailors the master Resume/resume.html
-// against the JD, output goes to Resume/<Company>/ following the existing
-// career-ops convention (resume.html + job-info.txt + PDF, one page, ../resume.css).
+// Tailored resume generation. claude -p tailors the master resume against the JD
+// and the active builder turns that into a PDF; output goes to
+// Resume/<Company-JobID>/ (source + job-info.txt + PDF, one A4 page).
+//
+// The builder is the seam for how a resume is produced — today LaTeX, matching
+// Resume/build-tex.sh. This file owns orchestration only: queueing, the output
+// directory, the retry, the fallback, and what gets recorded.
 import fs from 'node:fs';
 import path from 'node:path';
-import { RESUME_ROOT, MASTER_RESUME, CV_MD, readIfExists } from '../paths.mjs';
+import { RESUME_ROOT } from '../paths.mjs';
 import { db, nowIso, addEvent, getJob, latestAnalysis, latestResume, setStatus } from '../db.mjs';
 import { runClaude, extractText } from './claude.mjs';
-import { enqueue, opQueue, opStart, opEnd, opActive, createPool } from './ops.mjs';
+import { enqueue, opQueue, opStart, opEnd, opActive } from './ops.mjs';
+import { activeBuilder } from './resume-builders.mjs';
 
 const pdfName = () => process.env.RESUME_PDF_NAME || 'Viswanathan-T-J-Resume.pdf';
 
@@ -42,95 +47,6 @@ function releaseDir(dir) {
   if (dir) claimedDirs.delete(dir);
 }
 
-function buildResumePrompt(job, analysis) {
-  const master = readIfExists(MASTER_RESUME);
-  const cv = readIfExists(CV_MD);
-  const analysisBlock = analysis
-    ? `\n=== MATCH ANALYSIS (for emphasis guidance) ===\nScore: ${analysis.score}/5\nPros: ${analysis.pros.join('; ')}\nCons: ${analysis.cons.join('; ')}\n`
-    : '';
-  return `You are tailoring an existing one-page HTML resume for a specific job posting.
-
-=== MASTER RESUME (HTML) ===
-${master}
-
-=== CANONICAL CV (source of truth for every factual claim) ===
-${cv}
-${analysisBlock}
-=== JOB POSTING ===
-Title: ${job.title}
-Company: ${job.company}
-Location: ${job.location}
-URL: ${job.url}
-
-Description:
-${job.description}
-
-=== TAILORING RULES (all mandatory) ===
-1. TRUTHFULNESS: Every claim must already exist in the master resume or the CV. Reorder,
-   reframe, and emphasise — never invent. No new employers, titles, dates, metrics, tools,
-   or projects. Keywords get reformulated, never fabricated.
-2. Specifically forbidden: any AWS experience claim; any claim of production Generative-AI
-   work (GenAI is coursework/personal exploration only — it may appear only where the CV
-   already lists it, e.g. certificates); claiming authorship of tools the candidate merely uses.
-3. Keep the EXACT HTML document structure, class names, section order, and inline SVG icons.
-   Do not add or remove sections. Do not add any <style> blocks or inline styles.
-4. Change ONLY: the <title>, the role line under the name, the summary text, the wording and
-   ordering of experience/project bullets, and the ordering/emphasis of skills — to align
-   with this job description.
-5. The stylesheet link must be exactly: <link rel="stylesheet" href="../resume.css">
-6. ONE PAGE budget: total text content must be the same length or shorter than the master.
-   Do not add bullets — only reword or reorder existing ones.
-7. Contact details (phone, email, links) must remain byte-identical to the master.
-
-=== OUTPUT ===
-Output ONLY the complete tailored HTML document, starting with <!DOCTYPE html>. No markdown
-fences, no explanation before or after.`;
-}
-
-function cleanHtml(text) {
-  let html = text.trim();
-  const fence = html.match(/```(?:html)?\s*([\s\S]*?)```/);
-  if (fence) html = fence[1].trim();
-  const start = html.indexOf('<!DOCTYPE');
-  if (start > 0) html = html.slice(start);
-  if (!html.startsWith('<!DOCTYPE')) throw new Error('Model did not return an HTML document');
-  // Belt-and-braces: make sure the stylesheet points one level up.
-  html = html.replace(/href="resume\.css"/g, 'href="../resume.css"');
-  return html;
-}
-
-// The AI pool may run many resume jobs at once, but each render launches a
-// Chromium — cap those separately so parallelism doesn't exhaust memory.
-const RENDER_CONCURRENCY = 3;
-const renderPool = createPool(() => RENDER_CONCURRENCY);
-
-function renderPdf(htmlPath, pdfPath) {
-  return renderPool.add(async () => {
-    const { chromium } = await import('playwright');
-    const browser = await chromium.launch();
-    try {
-      const page = await browser.newPage();
-      await page.goto(`file://${htmlPath}`, { waitUntil: 'networkidle' });
-      await page.pdf({ path: pdfPath, printBackground: true, preferCSSPageSize: true });
-    } finally {
-      await browser.close();
-    }
-  });
-}
-
-function countPdfPages(pdfPath) {
-  // Chromium writes an uncompressed page tree: /Type /Pages ... /Count N
-  try {
-    const buf = fs.readFileSync(pdfPath).toString('latin1');
-    const m = buf.match(/\/Type\s*\/Pages[^>]*?\/Count\s+(\d+)/);
-    if (m) return parseInt(m[1], 10);
-    const pageObjs = (buf.match(/\/Type\s*\/Page[^s]/g) || []).length;
-    return pageObjs || null;
-  } catch {
-    return null;
-  }
-}
-
 function writeJobInfo(dir, job, analysis) {
   const lines = [
     `Company: ${job.company}`,
@@ -154,7 +70,9 @@ export function generateResume(jobId, { force = false } = {}) {
   const job = getJob(jobId);
   if (!job) throw new Error(`Job ${jobId} not found`);
   const existing = latestResume(jobId);
-  if (existing && !force && fs.existsSync(existing.html_path)) {
+  // The PDF is the deliverable, so its presence is what "already generated"
+  // means — older rows stored their source in html_path, newer ones in source_path.
+  if (existing && !force && existing.pdf_path && fs.existsSync(existing.pdf_path)) {
     return Promise.resolve({ skipped: true, resume: existing });
   }
 
@@ -171,38 +89,62 @@ export function generateResume(jobId, { force = false } = {}) {
     let dir = null;
     try {
       const analysis = latestAnalysis(jobId);
-      const raw = await runClaude(buildResumePrompt(job, analysis), {
-        timeoutMs: 420_000,
-        signal: ctrl.signal,
-      });
-      const html = cleanHtml(extractText(raw));
+      const builder = activeBuilder();
+      const ask = (prompt) =>
+        runClaude(prompt, { timeoutMs: 420_000, signal: ctrl.signal }).then((r) =>
+          builder.cleanSource(extractText(r))
+        );
+
+      let source = await ask(builder.buildPrompt(job, analysis));
 
       dir = claimDir(job);
       fs.mkdirSync(dir, { recursive: true });
-      const htmlPath = path.join(dir, 'resume.html');
+      const sourcePath = path.join(dir, builder.sourceName);
       const pdfPath = path.join(dir, pdfName());
-      fs.writeFileSync(htmlPath, html);
       writeJobInfo(dir, job, analysis);
 
-      let pageCount = null;
-      try {
-        await renderPdf(htmlPath, pdfPath);
-        pageCount = await countPdfPages(pdfPath);
-      } catch (e) {
-        addEvent(jobId, 'pdf_render_failed', { error: String(e.message || e).slice(0, 300) });
+      // The master fills its single page, so a tailored version that overruns is
+      // the expected failure. Give it one chance to trim with the reason fed back,
+      // and if it still will not fit, ship the real resume rather than a worse one.
+      fs.writeFileSync(sourcePath, source);
+      let result = await builder.build(sourcePath, pdfPath);
+      if (result.failed) {
+        addEvent(jobId, 'resume_retry', { reason: result.reason, pages: result.pages ?? null });
+        source = await ask(builder.retryPrompt(job, analysis, source, result.reason));
+        fs.writeFileSync(sourcePath, source);
+        result = await builder.build(sourcePath, pdfPath);
       }
+
+      let usedBase = false;
+      if (result.failed) {
+        fs.copyFileSync(builder.basePdfPath(), pdfPath);
+        usedBase = true;
+        addEvent(jobId, 'resume_fell_back_to_base', { reason: result.reason, pages: result.pages ?? null });
+      }
+      const pageCount = usedBase ? 1 : result.pageCount;
 
       const version = (existing?.version || 0) + 1;
       const info = db
         .prepare(
-          `INSERT INTO resumes (job_id, version, dir, html_path, pdf_path, page_count, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`
+          `INSERT INTO resumes (job_id, version, dir, html_path, source_path, builder, pdf_path, page_count, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
-        .run(jobId, version, dir, htmlPath, fs.existsSync(pdfPath) ? pdfPath : null, pageCount, nowIso());
+        .run(
+          jobId,
+          version,
+          dir,
+          '', // no HTML is produced any more; source_path is the document
+          usedBase ? null : sourcePath,
+          usedBase ? `${builder.key}:base` : builder.key,
+          fs.existsSync(pdfPath) ? pdfPath : null,
+          pageCount,
+          nowIso()
+        );
       addEvent(jobId, 'resume_generated', {
         version,
         dir,
         pageCount,
+        usedBase,
         resumeId: Number(info.lastInsertRowid),
       });
       const fresh = getJob(jobId);

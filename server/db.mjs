@@ -120,6 +120,17 @@ if (!jobCols.includes('work_mode')) {
   }
 }
 
+// Migration: resumes are built from LaTeX now, not HTML, so the stored source is
+// a .tex file. `source_path` holds it for any builder, and `builder` records which
+// pipeline produced the row — existing rows are all the old HTML one. html_path is
+// left in place (and NOT NULL) so those older rows keep resolving.
+const resumeCols = db.prepare('PRAGMA table_info(resumes)').all().map((c) => c.name);
+if (!resumeCols.includes('source_path')) {
+  db.exec('ALTER TABLE resumes ADD COLUMN source_path TEXT');
+  db.exec("ALTER TABLE resumes ADD COLUMN builder TEXT NOT NULL DEFAULT 'html'");
+  db.exec('UPDATE resumes SET source_path = html_path WHERE source_path IS NULL');
+}
+
 // Companies sub-module: tracked career sites the user can scan on demand.
 db.exec(`
 CREATE TABLE IF NOT EXISTS companies (

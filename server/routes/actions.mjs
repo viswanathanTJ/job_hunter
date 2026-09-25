@@ -73,7 +73,7 @@ actionsRouter.post('/jobs/:id/resume', (req, res) => {
   if (!getJob(id)) return res.status(404).json({ error: 'Job not found' });
   const force = Boolean(req.body?.force);
   const existing = latestResume(id);
-  if (!force && existing && fs.existsSync(existing.html_path)) {
+  if (!force && existing && existing.pdf_path && fs.existsSync(existing.pdf_path)) {
     return res.json({ skipped: true, resume: existing });
   }
   generateResume(id, { force }).catch(() => {});
@@ -84,10 +84,13 @@ actionsRouter.get('/jobs/:id/resume/file', (req, res) => {
   const id = Number(req.params.id);
   const resume = latestResume(id);
   if (!resume) return res.status(404).json({ error: 'No resume for this job' });
-  const type = req.query.type === 'html' ? 'html' : 'pdf';
-  const file = type === 'html' ? resume.html_path : resume.pdf_path;
+  // `source` is the document the resume was built from (.tex today, .html on
+  // rows predating the LaTeX pipeline). `html` still resolves to it so old links work.
+  const type = ['source', 'html'].includes(req.query.type) ? 'source' : 'pdf';
+  const file = type === 'source' ? resume.source_path || resume.html_path : resume.pdf_path;
   if (!file || !fs.existsSync(file)) return res.status(404).json({ error: `No ${type} file on disk` });
   if (type === 'pdf') res.setHeader('Content-Type', 'application/pdf');
+  else res.setHeader('Content-Type', 'text/plain; charset=utf-8');
   res.setHeader('Content-Disposition', 'inline');
   res.sendFile(file);
 });

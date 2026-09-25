@@ -313,14 +313,23 @@ export default function JobDetail() {
                         {job.resume.page_count} page{job.resume.page_count > 1 ? 's ⚠ trim needed' : ' ✓'}
                       </span>
                     )}
+                    {/* A base fallback is the real resume, untailored — say so rather
+                        than letting it pass for a tailored one. */}
+                    {String(job.resume.builder || '').endsWith(':base') && (
+                      <span className="tag" style={{ color: 'var(--warn)', borderColor: 'var(--warn)' }} title="Tailoring could not be kept to one page, so your base resume was used unchanged">
+                        base resume — not tailored
+                      </span>
+                    )}
                     {hasPdf && (
                       <a className="btn small" href={`/api/jobs/${id}/resume/file?type=pdf`} target="_blank" rel="noreferrer">
                         PDF ↗
                       </a>
                     )}
-                    <a className="btn small" href={`/api/jobs/${id}/resume/file?type=html`} target="_blank" rel="noreferrer">
-                      HTML ↗
-                    </a>
+                    {job.resume.source_path && (
+                      <a className="btn small" href={`/api/jobs/${id}/resume/file?type=source`} target="_blank" rel="noreferrer">
+                        TeX ↗
+                      </a>
+                    )}
                   </div>
                   <div className="mono" style={{ fontSize: 11, color: 'var(--ink-3)', marginBottom: 10, wordBreak: 'break-all' }}>
                     {job.resume.dir}
