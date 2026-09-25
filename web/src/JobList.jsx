@@ -131,11 +131,11 @@ export default function JobList({ path = '/jobs', storageKey = 'jobs', showCompa
     setSelected(allShown ? [] : pageRows.map((j) => j.id));
   };
 
-  const runBulk = async (action, opts = {}) => {
+  const runBulk = async (action, opts = {}, ids = selected) => {
     setBusy(true);
     setNotice('');
     try {
-      const r = await apiPost('/jobs/bulk', { ids: selected, action, ...opts });
+      const r = await apiPost('/jobs/bulk', { ids, action, ...opts });
       const parts = [];
       if (r.changed) parts.push(`${r.changed} moved`);
       if (r.queued) parts.push(`${r.queued} queued`);
@@ -164,6 +164,24 @@ export default function JobList({ path = '/jobs', storageKey = 'jobs', showCompa
     const all = await apiGet(`${path}?${p.toString()}`);
     return (all.rows || []).map((j) => j.id);
   };
+
+  // Both act on the whole filtered set, so they resolve the id list first and
+  // hand it to runBulk rather than going through the on-screen selection.
+  const runOnAllMatching = async (action) => {
+    setBusy(true);
+    setNotice('');
+    try {
+      const ids = await allMatchingIds();
+      if (!ids.length) return setNotice('Nothing matches the current filters');
+      await runBulk(action, {}, ids);
+    } catch (e) {
+      setNotice(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const scoreAllMatching = () => runOnAllMatching('analyze');
+  const scoreAndResumeAllMatching = () => runOnAllMatching('score_and_resume');
 
   return (
     <>

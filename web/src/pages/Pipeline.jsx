@@ -34,7 +34,9 @@ export default function Pipeline() {
     params.set('within', age.within);
     params.set('withinBy', age.withinBy);
   }
-  const { data: jobs, reload } = useApi(`/jobs?${params.toString()}`, [pulse]);
+  // /jobs is paged now, so the payload is { rows, total } rather than an array.
+  const { data: payload, reload } = useApi(`/jobs?${params.toString()}`, [pulse]);
+  const jobs = payload?.rows;
 
   const move = async (jobId, status) => {
     setError('');
