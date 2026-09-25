@@ -41,7 +41,11 @@ function nextReportNum() {
 
 function relPdfPath(resume) {
   if (!resume?.pdf_path || !fs.existsSync(resume.pdf_path)) return null;
-  return path.relative(REPO_ROOT, resume.pdf_path);
+  // Resume/ is the dashboard's own tree, which need not sit inside the career-ops
+  // checkout. Record a repo-relative path when it does, and an absolute one when
+  // it does not — never a "../" path that only resolves from one cwd.
+  const rel = path.relative(REPO_ROOT, resume.pdf_path);
+  return rel.startsWith('..') ? resume.pdf_path : rel;
 }
 
 function writeReport(num, date, job, analysis, resume, notes) {

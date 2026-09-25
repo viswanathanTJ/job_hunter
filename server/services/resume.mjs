@@ -19,19 +19,9 @@ function companySlug(company) {
   );
 }
 
-// Dirs held by in-flight generations. Two jobs at the same company can now run
-// concurrently, and neither has a resumes row or a job-info.txt yet — without
-// this claim they would both resolve to Resume/<Company>/ and overwrite each other.
+// Dirs held by in-flight generations, so a job re-run while its first run is
+// still going does not race itself.
 const claimedDirs = new Set();
-
-/** True when `dir` belongs to some other job (in flight, in the DB, or on disk). */
-function dirTaken(dir, job) {
-  if (claimedDirs.has(dir)) return true;
-  if (db.prepare('SELECT 1 FROM resumes WHERE dir = ? AND job_id != ? LIMIT 1').get(dir, job.id)) return true;
-  const infoPath = path.join(dir, 'job-info.txt');
-  // A folder left by this same posting is ours to reuse.
-  return fs.existsSync(infoPath) && !readIfExists(infoPath).includes(job.url);
-}
 
 /** Resolve (and claim) the output dir. Release with releaseDir() when done. */
 function claimDir(job) {
@@ -40,9 +30,10 @@ function claimDir(job) {
     claimedDirs.add(existing.dir);
     return existing.dir;
   }
-  const base = path.join(RESUME_ROOT, companySlug(job.company));
-  // The job-id suffix is unique per job, so the fallback can't collide again.
-  const dir = dirTaken(base, job) ? `${base}-${job.id}` : base;
+  // Company-JobID for every job, not just on collision: the id keeps two
+  // postings at the same company apart, and makes the folder traceable back to
+  // the job it was tailored for.
+  const dir = path.join(RESUME_ROOT, `${companySlug(job.company)}-${job.id}`);
   claimedDirs.add(dir);
   return dir;
 }

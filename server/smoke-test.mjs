@@ -4,6 +4,7 @@ process.env.JOBDASH_DB_PATH = new URL('../data/smoke.db', import.meta.url).pathn
 process.env.JOBDASH_SETTINGS_PATH = new URL('../data/smoke-settings.json', import.meta.url).pathname;
 process.env.JOBDASH_PROFILE_PATH = new URL('../data/smoke-profile.json', import.meta.url).pathname;
 import fs from 'node:fs';
+import nodePath from 'node:path';
 
 for (const suffix of ['', '-wal', '-shm']) {
   try {
@@ -573,6 +574,19 @@ const cfg = naukriSource.buildInput({
 check('the naukri input asks for full descriptions', cfg.fetchAdditionalDetails === true);
 check('the naukri input carries a per-query cap', cfg.maxResultsPerQuery === 25);
 check('the naukri input still sends the generic keys other actors expect', Boolean(cfg.startUrls && cfg.keyword));
+
+// 28. career-ops integration paths must actually resolve. When they did not, every
+// read silently returned '' — the resume prompt carried an empty master resume and
+// CV, so the model answered in prose and generation failed with "Model did not
+// return an HTML document" rather than anything pointing at the real cause.
+const paths = await import('./paths.mjs');
+const fsMod = await import('node:fs');
+check('the career-ops root is located, not assumed', fsMod.existsSync(nodePath.join(paths.REPO_ROOT, 'cv.md')));
+for (const key of ['MASTER_RESUME', 'CV_MD', 'PROFILE_YML', 'PROFILE_MD', 'MERGE_TRACKER']) {
+  check(`${key} points at a file that exists`, fsMod.existsSync(paths[key]));
+}
+check('the master resume is not empty', paths.readIfExists(paths.MASTER_RESUME).length > 0);
+check('the canonical CV is not empty', paths.readIfExists(paths.CV_MD).length > 0);
 
 console.log(failures === 0 ? '\nALL SMOKE TESTS PASSED' : `\n${failures} FAILURES`);
 process.exit(failures === 0 ? 0 : 1);
