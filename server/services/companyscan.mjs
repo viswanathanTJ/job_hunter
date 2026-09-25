@@ -12,6 +12,7 @@ import { importJobs } from './importer.mjs';
 import { analyzeJob } from './claude.mjs';
 import { getProfile } from './profile.mjs';
 import { opQueue, opStart, opEnd, opActive } from './ops.mjs';
+import { normalizePosted } from './posted.mjs';
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/126.0 Safari/537.36';
 // Workday's country facet GUIDs are global across tenants.
@@ -131,7 +132,7 @@ async function fetchWorkday(cfg, profile, signal) {
         title: p.title,
         url: pub + p.externalPath,
         location: (p.locationsText || '').trim(),
-        postedAt: (p.postedOn || '').replace('Posted ', ''),
+        postedAt: normalizePosted(p.postedOn),
         reqId: (p.bulletFields || [])[0] || '',
       });
     }
@@ -151,7 +152,7 @@ async function fetchGreenhouse(cfg, _profile, signal) {
     title: j.title,
     url: j.absolute_url,
     location: j.location?.name || '',
-    postedAt: (j.updated_at || '').slice(0, 10),
+    postedAt: normalizePosted(j.updated_at),
   }));
 }
 
@@ -166,7 +167,7 @@ async function fetchLever(cfg, _profile, signal) {
     title: j.text,
     url: j.hostedUrl || j.applyUrl,
     location: j.categories?.location || '',
-    postedAt: j.createdAt ? new Date(j.createdAt).toISOString().slice(0, 10) : '',
+    postedAt: normalizePosted(j.createdAt),
     employmentType: j.categories?.commitment || '',
   }));
 }
@@ -222,7 +223,7 @@ async function fetchCareerSite(cfg, _profile, signal) {
           title: d.title,
           url,
           location: [d.city, d.state, d.country].filter(Boolean).join(', ') || d.full_location || '',
-          postedAt: (d.posted_date || d.create_date || '').slice(0, 10),
+          postedAt: normalizePosted(d.posted_date || d.create_date),
           employmentType: d.employment_type || '',
         });
       }
@@ -247,7 +248,7 @@ async function fetchCareerSite(cfg, _profile, signal) {
       title: titleCase(segs[2]),
       url,
       location: titleCase(segs[1]),
-      postedAt: (lastmod || '').slice(0, 10),
+      postedAt: normalizePosted(lastmod),
     });
   }
   if (!out.length) throw new Error(`Sitemap at ${cfg.origin} contains no /job/ URLs — unsupported careers site`);
@@ -387,51 +388,3 @@ export function scanAllCompanies({ analyze = true } = {}) {
   return { queued, skipped };
 }
 
-function safeParseArr(s) {
-  try {
-    const v = JSON.parse(s);
-    return Array.isArray(v) ? v : [];
-  } catch {
-    return [];
-  }
-}
-
-/** Jobs stored for one company, newest analysis attached — the detail view.
- *  matched: '1' (default) | '0' | 'all'. q: title/location substring.
- *  minScore: numeric floor — when set, unscored rows are excluded.
- *  sort: score (default, unscored last) | created | posted | title. */
-export function companyJobs(company, { matched = '1', q = '', minScore = '', sort = 'score' } = {}) {
-  const where = ['j.source = ?'];
-  const params = [`company:${company.name}`];
-  if (matched === '1' || matched === '0') {
-    where.push('j.matched = ?');
-    params.push(Number(matched));
-  }
-  if (q) {
-    where.push('(j.title LIKE ? OR j.location LIKE ?)');
-    params.push(`%${q}%`, `%${q}%`);
-  }
-  const sorts = {
-    score: 'score IS NULL, score DESC, j.id DESC',
-    created: 'j.id DESC',
-    posted: "j.posted_at = '', j.posted_at DESC, j.id DESC",
-    title: 'j.title COLLATE NOCASE ASC',
-  };
-  let rows = db
-    .prepare(
-      `SELECT j.*,
-        (SELECT a.score     FROM analyses a WHERE a.job_id = j.id ORDER BY a.id DESC LIMIT 1) AS score,
-        (SELECT a.verdict   FROM analyses a WHERE a.job_id = j.id ORDER BY a.id DESC LIMIT 1) AS verdict,
-        (SELECT a.reasoning FROM analyses a WHERE a.job_id = j.id ORDER BY a.id DESC LIMIT 1) AS reasoning,
-        (SELECT a.pros      FROM analyses a WHERE a.job_id = j.id ORDER BY a.id DESC LIMIT 1) AS pros,
-        (SELECT a.cons      FROM analyses a WHERE a.job_id = j.id ORDER BY a.id DESC LIMIT 1) AS cons,
-        (SELECT a.location_check FROM analyses a WHERE a.job_id = j.id ORDER BY a.id DESC LIMIT 1) AS location_check
-       FROM jobs j WHERE ${where.join(' AND ')}
-       ORDER BY ${sorts[sort] || sorts.score}`
-    )
-    .all(...params)
-    .map(parseJob)
-    .map((r) => ({ ...r, pros: safeParseArr(r.pros), cons: safeParseArr(r.cons) }));
-  if (minScore) rows = rows.filter((r) => r.score != null && r.score >= Number(minScore));
-  return rows;
-}

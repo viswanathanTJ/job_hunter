@@ -60,6 +60,8 @@ export default function Profile() {
         workModes: profile.workModes || [],
         jobTypes: profile.jobTypes || [],
         minScore: profile.minScore ?? 4,
+        yearsExperience: profile.yearsExperience ?? 4,
+        maxYoeAsk: profile.maxYoeAsk ?? 4,
       });
     }
   }, [profile, form]);
@@ -86,6 +88,8 @@ export default function Profile() {
         workModes: form.workModes,
         jobTypes: form.jobTypes,
         minScore: Number(form.minScore) || 4,
+        yearsExperience: Number(form.yearsExperience) || 0,
+        maxYoeAsk: Number(form.maxYoeAsk) || 0,
       });
       setSaved(true);
       reload();
@@ -110,6 +114,41 @@ export default function Profile() {
       </p>
 
       <div style={{ maxWidth: 760 }}>
+        <label className="field" style={{ display: 'block', marginBottom: 14 }}>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>Years of experience</div>
+          <div className="meta" style={{ marginBottom: 4 }}>
+            The analyzer weighs each posting's experience ask against this — within 2 years over is treated as a normal stretch,
+            5+ years over caps the score.
+          </div>
+          <input
+            className="input"
+            type="number"
+            min="0"
+            max="50"
+            step="0.5"
+            style={{ width: 120 }}
+            value={form.yearsExperience ?? 0}
+            onChange={(e) => set('yearsExperience')(e.target.value)}
+          />
+        </label>
+
+        <label className="field" style={{ display: 'block', marginBottom: 14 }}>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>Auto-reject above (years)</div>
+          <div className="meta" style={{ marginBottom: 4 }}>
+            Postings asking for more years than this are discarded the moment they arrive, before any Claude analysis is spent on
+            them. Postings that never state a requirement are always kept. Set to 0 to turn the rule off.
+          </div>
+          <input
+            className="input"
+            type="number"
+            min="0"
+            max="50"
+            style={{ width: 120 }}
+            value={form.maxYoeAsk ?? 0}
+            onChange={(e) => set('maxYoeAsk')(e.target.value)}
+          />
+        </label>
+
         <ListField label="Languages I know" hint="Programming languages / core stacks, comma-separated." value={form.languages} onChange={set('languages')} />
         <ListField label="Roles I'm interested in" hint="Target role titles, comma-separated." value={form.roles} onChange={set('roles')} />
         <ListField label="Topics I'm interested in" hint="Domains and technologies you want to work on." value={form.topics} onChange={set('topics')} />

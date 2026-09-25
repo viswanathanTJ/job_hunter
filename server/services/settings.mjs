@@ -5,8 +5,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { DATA_DIR } from '../paths.mjs';
+import { tierQuery } from './tiers.mjs';
 
-const SETTINGS_PATH = path.join(DATA_DIR, 'settings.json');
+// Overridable so tests (and any throwaway instance) never read or write the
+// real user's settings file, which lives outside the database path.
+const SETTINGS_PATH = process.env.JOBDASH_SETTINGS_PATH || path.join(DATA_DIR, 'settings.json');
 
 const splitList = (s) =>
   String(s || '')
@@ -14,16 +17,32 @@ const splitList = (s) =>
     .map((x) => x.trim())
     .filter(Boolean);
 
+// Roles you hunt for, in two tiers. Primary is what you actually want;
+// secondary is adjacent work worth seeing but ranked below it.
+const DEFAULT_PRIMARY = ['Backend Engineer', 'Full Stack Developer', 'Python Developer', 'Java Developer'];
+const DEFAULT_SECONDARY = ['DevOps Engineer', 'Cloud Architect'];
+
 /** Defaults derived from .env so pre-existing env config is honoured. */
 function envDefaults() {
+  const search = {
+    primary: splitList(process.env.JOB_SEARCH_PRIMARY).length
+      ? splitList(process.env.JOB_SEARCH_PRIMARY)
+      : DEFAULT_PRIMARY,
+    secondary: splitList(process.env.JOB_SEARCH_SECONDARY).length
+      ? splitList(process.env.JOB_SEARCH_SECONDARY)
+      : DEFAULT_SECONDARY,
+    // Secondary roles double the searches per fetch, so they are opt-in.
+    includeSecondary: process.env.FETCH_SECONDARY === 'true',
+  };
   return {
+    search,
     apifyToken: process.env.APIFY_TOKEN || '',
     claudeModel: process.env.CLAUDE_MODEL || 'sonnet',
     resumePdfName: process.env.RESUME_PDF_NAME || 'Resume.pdf',
     fetchCount: Number(process.env.FETCH_COUNT || 10),
     linkedin: {
       actor: process.env.APIFY_ACTOR || 'curious_coder~linkedin-jobs-scraper',
-      query: process.env.JOB_SEARCH_QUERY || 'Backend Engineer OR Senior Backend Engineer',
+      query: process.env.JOB_SEARCH_QUERY || tierQuery(search.primary),
       locations: splitList(process.env.LINKEDIN_LOCATION || 'Bengaluru, Chennai'),
       lookbackHours: Number(process.env.LOOKBACK_HOURS || 24),
       includeRemoteIndia: true,
@@ -31,7 +50,7 @@ function envDefaults() {
     },
     naukri: {
       actor: process.env.APIFY_NAUKRI_ACTOR || '',
-      query: process.env.NAUKRI_SEARCH_QUERY || process.env.JOB_SEARCH_QUERY || 'Backend Engineer',
+      query: process.env.NAUKRI_SEARCH_QUERY || process.env.JOB_SEARCH_QUERY || tierQuery(search.primary),
       locations: splitList(process.env.NAUKRI_LOCATION || 'Bengaluru, Chennai'),
       includeRemote: true, // Naukri is India-only, so "remote" = work-from-home in India.
     },

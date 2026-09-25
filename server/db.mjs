@@ -98,6 +98,28 @@ if (!jobCols.includes('matched')) {
   db.exec('ALTER TABLE jobs ADD COLUMN matched INTEGER NOT NULL DEFAULT 1');
 }
 
+// Migration: postings filtered out on arrival (currently by the experience cap)
+// are flagged rather than deleted, so they stay auditable and restorable but
+// never clutter the working list. Guarded so existing databases upgrade in place.
+if (!jobCols.includes('ignored')) {
+  db.exec('ALTER TABLE jobs ADD COLUMN ignored INTEGER NOT NULL DEFAULT 0');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_jobs_ignored ON jobs(ignored)');
+}
+
+// Migration: facets read out of the posting text (how the role is worked, and
+// the minimum years it asks for). Backfilled once for rows imported before the
+// columns existed. Guarded so existing databases upgrade in place.
+if (!jobCols.includes('work_mode')) {
+  db.exec("ALTER TABLE jobs ADD COLUMN work_mode TEXT NOT NULL DEFAULT ''");
+  db.exec('ALTER TABLE jobs ADD COLUMN yoe_min INTEGER');
+  const { extractFacets } = await import('./services/facets.mjs');
+  const update = db.prepare('UPDATE jobs SET work_mode = ?, yoe_min = ? WHERE id = ?');
+  for (const row of db.prepare('SELECT id, description, location FROM jobs').all()) {
+    const f = extractFacets(row.description, row.location);
+    update.run(f.workMode, f.yoeMin, row.id);
+  }
+}
+
 // Companies sub-module: tracked career sites the user can scan on demand.
 db.exec(`
 CREATE TABLE IF NOT EXISTS companies (

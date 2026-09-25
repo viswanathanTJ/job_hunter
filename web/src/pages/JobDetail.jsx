@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { useApi, apiPost, apiPatch, relTime } from '../api.js';
+import { useApi, apiPost, apiPatch, relTime, postedLabel, postedExact } from '../api.js';
 import { StatusBadge, ScoreChip, ScoreDial, Modal, EventItem } from '../components.jsx';
 import { useOpsContext } from '../App.jsx';
 
@@ -80,7 +80,9 @@ export default function JobDetail() {
           <div className="page-sub" style={{ marginBottom: 10 }}>
             <b>{job.company}</b>
             {job.location && ` · ${job.location}`}
-            {job.posted_at && ` · posted ${job.posted_at}`}
+            {job.posted_at && (
+              <span title={postedExact(job.posted_at)}> · posted {postedLabel(job.posted_at)}</span>
+            )}
             {job.seniority && ` · ${job.seniority}`}
             {job.employment_type && ` · ${job.employment_type}`}
           </div>

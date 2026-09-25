@@ -4,6 +4,8 @@
 // descriptor here and registering it in SOURCES.
 import { stripHtml } from './apify.mjs';
 import { getSettings } from './settings.mjs';
+import { normalizePosted } from './posted.mjs';
+import { tierQuery } from './tiers.mjs';
 
 const RECENT_DAYS = 7;
 const recentCutoff = () => new Date(Date.now() - RECENT_DAYS * 86400000).toISOString().slice(0, 10);
@@ -32,6 +34,17 @@ function linkedinUrls({ query, locations, lookbackHours, includeRemoteIndia, inc
   return urls;
 }
 
+/** URLs for every enabled tier. Falls back to the plain query when no roles are set. */
+function tieredLinkedinUrls(c) {
+  const queries = [];
+  const primary = tierQuery(c.search?.primary);
+  const secondary = tierQuery(c.search?.secondary);
+  if (primary) queries.push(primary);
+  else if (c.query) queries.push(c.query);
+  if (c.search?.includeSecondary && secondary) queries.push(secondary);
+  return queries.flatMap((query) => linkedinUrls({ ...c, query }));
+}
+
 export const linkedinSource = {
   key: 'linkedin',
   label: 'LinkedIn',
@@ -45,10 +58,13 @@ export const linkedinSource = {
       lookbackHours: s.linkedin.lookbackHours,
       includeRemoteIndia: s.linkedin.includeRemoteIndia,
       includeRemoteAnywhere: s.linkedin.includeRemoteAnywhere,
+      search: s.search,
       count: s.fetchCount,
     };
   },
-  buildInput: (c) => ({ urls: linkedinUrls(c), scrapeCompany: false, count: c.count }),
+  // Each tier is one OR-joined keyword search, so adding secondary roles costs
+  // one extra URL per location rather than one per role.
+  buildInput: (c) => ({ urls: tieredLinkedinUrls(c), scrapeCompany: false, count: c.count }),
   parseItems(items) {
     const jobs = [];
     const seen = new Set();
@@ -56,7 +72,7 @@ export const linkedinSource = {
     for (const j of items || []) {
       const jobLink = j.link || j.jobUrl || j.url || '';
       if (!jobLink || seen.has(jobLink)) continue;
-      const postedAt = j.postedAt || '';
+      const postedAt = normalizePosted(j.postedAt || j.postedDate || j.postedTime);
       if (postedAt && postedAt < cutoff) continue;
       const jobDescription = j.descriptionHtml ? stripHtml(j.descriptionHtml) : j.descriptionText || '';
       if (!jobDescription || jobDescription.length < 50) continue;
@@ -115,21 +131,31 @@ export const naukriSource = {
       query: s.naukri.query,
       locations: s.naukri.locations,
       includeRemote: s.naukri.includeRemote,
+      search: s.search,
       count: s.fetchCount,
     };
   },
   buildInput: (c) => {
     const locs = c.locations.length ? c.locations : [''];
-    const urls = locs.map((loc) => naukriUrl(c.query, loc));
-    if (c.includeRemote) urls.push(naukriRemoteUrl(c.query));
+    const queries = [tierQuery(c.search?.primary) || c.query];
+    if (c.search?.includeSecondary && tierQuery(c.search?.secondary)) queries.push(tierQuery(c.search.secondary));
+    const urls = queries.flatMap((query) => locs.map((loc) => naukriUrl(query, loc)));
+    if (c.includeRemote) for (const query of queries) urls.push(naukriRemoteUrl(query));
     return {
-      // Different Naukri actors accept different keys — provide the common ones.
+      // Naukri actors disagree on input shape, so send every common spelling and
+      // let the actor pick out what it understands.
       startUrls: urls.map((url) => ({ url })),
       urls,
-      keyword: c.query,
+      keyword: queries[0],
       location: locs.join(', '),
       maxItems: c.count,
       count: c.count,
+      // epicscrapers~naukri-scraper keys. Search results carry only a summary
+      // description, and this app needs the full text to score and to read
+      // years/work-mode out of, so the extra detail fetch is required.
+      maxResultsPerQuery: c.count,
+      fetchAdditionalDetails: true,
+      sort: 'date',
     };
   },
   parseItems(items) {
@@ -142,18 +168,23 @@ export const naukriSource = {
       const rawDesc = j.jobDescription || j.description || j.jobDescriptionHtml || j.jd || '';
       const jobDescription = /<[a-z][\s\S]*>/i.test(rawDesc) ? stripHtml(rawDesc) : String(rawDesc).trim();
       if (!jobDescription || jobDescription.length < 50) continue;
-      const postedAt = normalizeNaukriDate(j.createdDate || j.postedAt || j.footerPlaceholderLabel || '');
+      const postedAt = normalizePosted(j.createdDate || j.postedAt || j.footerPlaceholderLabel);
       if (postedAt && postedAt < cutoff) continue;
       const location = Array.isArray(j.placeholders)
         ? (j.placeholders.find((p) => p?.type === 'location')?.label || '')
-        : j.location || j.jobLocation || '';
+        : j.locationLabel || j.location || j.jobLocation || '';
+      // Some actors state the minimum years outright — far better than reading
+      // it back out of the prose.
+      const stated = Number(j.minimumExperience);
+      const yoeMin = Number.isFinite(stated) && stated >= 0 && stated <= 25 ? stated : null;
       jobs.push({
         title: j.title || j.jobTitle || j.designation || 'No Title',
         company: j.companyName || j.company || 'Unknown Company',
         location,
         postedAt,
         employmentType: j.employmentType || j.jobType || '',
-        seniorityLevel: j.experience || j.seniorityLevel || '',
+        seniorityLevel: j.experienceLabel || j.experience || j.seniorityLevel || '',
+        yoeMin,
         jobLink,
         jobDescription,
       });
@@ -163,21 +194,6 @@ export const naukriSource = {
     return jobs;
   },
 };
-
-/** Naukri exposes posted dates as ISO, epoch ms, or "3 Days Ago" labels. */
-function normalizeNaukriDate(v) {
-  if (!v) return '';
-  if (/^\d{4}-\d{2}-\d{2}/.test(String(v))) return String(v).slice(0, 10);
-  if (/^\d{10,}$/.test(String(v))) return new Date(Number(v)).toISOString().slice(0, 10);
-  const m = String(v).match(/(\d+)\s*(day|hour|week|month)/i);
-  if (m) {
-    const n = Number(m[1]);
-    const unit = m[2].toLowerCase();
-    const days = unit === 'week' ? n * 7 : unit === 'month' ? n * 30 : unit === 'hour' ? 0 : n;
-    return new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
-  }
-  return ''; // Unknown format — let it through (no recency filter) rather than drop.
-}
 
 export const SOURCES = {
   [linkedinSource.key]: linkedinSource,

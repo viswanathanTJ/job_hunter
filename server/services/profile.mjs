@@ -6,7 +6,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { DATA_DIR } from '../paths.mjs';
 
-const PROFILE_PATH = path.join(DATA_DIR, 'profile.json');
+// Overridable so tests never read or write the real user's profile, which
+// lives outside the database path.
+const PROFILE_PATH = process.env.JOBDASH_PROFILE_PATH || path.join(DATA_DIR, 'profile.json');
 
 /** Defaults seeded from the career-ops profile (config/profile.yml, portals.yml). */
 export function profileDefaults() {
@@ -38,6 +40,12 @@ export function profileDefaults() {
     },
     workModes: ['remote', 'hybrid', 'on-site'],
     jobTypes: ['full-time'],
+    // Drives how the analyzer weighs a posting's years-of-experience ask.
+    yearsExperience: 4,
+    // Postings asking for MORE than this many years are moved straight to the
+    // ignored list on arrival, before any Claude analysis is spent on them.
+    // 0 turns the rule off.
+    maxYoeAsk: 5,
     minScore: 4,
   };
 }

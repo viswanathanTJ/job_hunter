@@ -5,6 +5,7 @@ import { analyzeJob, analyzeAll } from '../services/claude.mjs';
 import { generateResume } from '../services/resume.mjs';
 import { markApplied } from '../services/tracker.mjs';
 import { opSnapshot, cancelOp } from '../services/ops.mjs';
+import { BULK_ACTIONS } from '../services/bulk.mjs';
 
 export const actionsRouter = express.Router();
 
@@ -17,6 +18,27 @@ actionsRouter.post('/ops/cancel', (req, res) => {
   if (!key) return res.status(400).json({ error: 'key required' });
   if (!cancelOp(key)) return res.status(404).json({ error: 'No cancellable operation with that key' });
   res.json({ ok: true });
+});
+
+// One endpoint for every selection-wide action, so the UI can report exactly
+// what happened to each job rather than a bare count.
+actionsRouter.post('/jobs/bulk', (req, res) => {
+  const { ids, action, ...opts } = req.body || {};
+  const run = BULK_ACTIONS[action];
+  if (!run) return res.status(400).json({ error: `Unknown bulk action: ${action}` });
+  if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: 'Select at least one job' });
+  try {
+    const results = run(ids, opts);
+    const queued = results.filter((r) => r.queued).length;
+    res.status(queued ? 202 : 200).json({
+      results,
+      changed: results.filter((r) => r.to).length,
+      queued,
+      skipped: results.filter((r) => r.skipped).length,
+    });
+  } catch (e) {
+    res.status(400).json({ error: String(e.message || e) });
+  }
 });
 
 actionsRouter.post('/jobs/:id/analyze', (req, res) => {

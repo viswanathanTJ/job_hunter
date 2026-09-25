@@ -1,16 +1,10 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useApi, apiPost, STATUS_META, relTime } from '../api.js';
-import { StatusBadge, ScoreChip, SourceBadge } from '../components.jsx';
-import { useOpsContext } from '../App.jsx';
+import { useNavigate } from 'react-router-dom';
+import { apiPost } from '../api.js';
+import JobList from '../JobList.jsx';
 
 export default function Jobs() {
-  const { ops, pulse } = useOpsContext();
   const navigate = useNavigate();
-  const [q, setQ] = useState('');
-  const [status, setStatus] = useState('');
-  const [minScore, setMinScore] = useState('');
-  const [sort, setSort] = useState('created');
   const [showAdd, setShowAdd] = useState(false);
   const [addUrl, setAddUrl] = useState('');
   const [adding, setAdding] = useState(false);
@@ -29,15 +23,6 @@ export default function Jobs() {
       setAdding(false);
     }
   };
-
-  const params = new URLSearchParams();
-  if (q) params.set('q', q);
-  if (status) params.set('status', status);
-  if (minScore) params.set('minScore', minScore);
-  params.set('sort', sort);
-
-  const { data: jobs } = useApi(`/jobs?${params.toString()}`, [pulse]);
-  const runningFor = (id) => ops.find((o) => o.jobId === id && ['running', 'queued', 'cancelling'].includes(o.state));
 
   return (
     <>
@@ -65,68 +50,7 @@ export default function Jobs() {
         </div>
       )}
 
-      <div className="toolbar">
-        <input className="input grow" placeholder="Search title, company, location, description…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <select className="input" value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="">All statuses</option>
-          {Object.entries(STATUS_META).map(([k, v]) => (
-            <option key={k} value={k}>
-              {v.label}
-            </option>
-          ))}
-        </select>
-        <select className="input" value={minScore} onChange={(e) => setMinScore(e.target.value)}>
-          <option value="">Any score</option>
-          <option value="4">≥ 4.0 (good fits)</option>
-          <option value="3">≥ 3.0</option>
-        </select>
-        <select className="input" value={sort} onChange={(e) => setSort(e.target.value)}>
-          <option value="created">Newest first</option>
-          <option value="score">By score</option>
-          <option value="company">By company</option>
-          <option value="posted">By posted date</option>
-          <option value="updated">Recently updated</option>
-        </select>
-      </div>
-
-      <div className="job-rows">
-        {!jobs && <div className="empty">Loading…</div>}
-        {jobs && jobs.length === 0 && <div className="empty">No jobs match. Try clearing filters, or fetch new jobs from the dashboard.</div>}
-        {(jobs || []).map((j) => {
-          const op = runningFor(j.id);
-          return (
-            <Link className="job-row" to={`/jobs/${j.id}`} key={j.id}>
-              <div>
-                <div className="title">{j.title}</div>
-                <div className="meta">
-                  <SourceBadge source={j.source} />
-                  <b>{j.company}</b>
-                  {j.location && <span>· {j.location}</span>}
-                  {j.posted_at && <span>· posted {j.posted_at}</span>}
-                  {j.resume_count > 0 && <span className="tag">CV ×{j.resume_count}</span>}
-                  {(j.tags || []).map((t) => (
-                    <span className="tag" key={t}>
-                      #{t}
-                    </span>
-                  ))}
-                  {op && (
-                    <span style={{ color: 'var(--accent)' }}>
-                      <span className="spinner" /> {op.type === 'analyze' ? 'analyzing…' : 'generating resume…'}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="right">
-                <ScoreChip score={j.score} verdict={j.verdict} />
-                <StatusBadge status={j.status} />
-                <span className="mono" style={{ fontSize: 10.5, color: 'var(--ink-3)' }}>
-                  {relTime(j.created_at)}
-                </span>
-              </div>
-            </Link>
-          );
-        })}
-      </div>
+      <JobList path="/jobs" storageKey="jobs" />
     </>
   );
 }

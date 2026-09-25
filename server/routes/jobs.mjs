@@ -1,8 +1,9 @@
 import express from 'express';
-import { db, STATUSES, nowIso, addEvent, getJob, jobWithDetails, parseJob, setStatus } from '../db.mjs';
+import { db, STATUSES, nowIso, addEvent, getJob, jobWithDetails, setStatus } from '../db.mjs';
 import { fetchJobFromUrl } from '../services/jobfetch.mjs';
 import { importJobs } from '../services/importer.mjs';
 import { analyzeJob } from '../services/claude.mjs';
+import { listJobsPage, companyNames } from '../services/joblist.mjs';
 
 export const jobsRouter = express.Router();
 
@@ -26,23 +27,13 @@ jobsRouter.post('/jobs/add', async (req, res) => {
   }
 });
 
-const LIST_SELECT = `
-  SELECT j.*,
-    (SELECT a.score   FROM analyses a WHERE a.job_id = j.id ORDER BY a.id DESC LIMIT 1) AS score,
-    (SELECT a.verdict FROM analyses a WHERE a.job_id = j.id ORDER BY a.id DESC LIMIT 1) AS verdict,
-    (SELECT COUNT(*)  FROM analyses a WHERE a.job_id = j.id)                            AS analysis_count,
-    (SELECT r.pdf_path FROM resumes r WHERE r.job_id = j.id ORDER BY r.id DESC LIMIT 1) AS resume_pdf,
-    (SELECT COUNT(*)  FROM resumes r WHERE r.job_id = j.id)                             AS resume_count,
-    (SELECT ap.applied_at FROM applications ap WHERE ap.job_id = j.id)                  AS applied_at
-  FROM jobs j
-`;
-
 jobsRouter.get('/stats', (req, res) => {
   const byStatus = Object.fromEntries(STATUSES.map((s) => [s, 0]));
-  for (const row of db.prepare('SELECT status, COUNT(*) n FROM jobs WHERE matched = 1 GROUP BY status').all()) {
+  for (const row of db.prepare('SELECT status, COUNT(*) n FROM jobs WHERE matched = 1 AND ignored = 0 GROUP BY status').all()) {
     byStatus[row.status] = row.n;
   }
-  const total = db.prepare('SELECT COUNT(*) n FROM jobs WHERE matched = 1').get().n;
+  const total = db.prepare('SELECT COUNT(*) n FROM jobs WHERE matched = 1 AND ignored = 0').get().n;
+  const ignoredCount = db.prepare('SELECT COUNT(*) n FROM jobs WHERE ignored = 1').get().n;
   const analyzed = db.prepare('SELECT COUNT(DISTINCT job_id) n FROM analyses').get().n;
   const avgScore =
     db
@@ -68,43 +59,16 @@ jobsRouter.get('/stats', (req, res) => {
        ORDER BY e.id DESC LIMIT 15`
     )
     .all();
-  res.json({ total, byStatus, analyzed, avgScore, appliedThisWeek, goodFits, lastFetch, recentEvents });
+  res.json({ total, ignored: ignoredCount, byStatus, analyzed, avgScore, appliedThisWeek, goodFits, lastFetch, recentEvents });
 });
 
 jobsRouter.get('/jobs', (req, res) => {
-  const { status, q, tag, minScore, sort = 'created', dir = 'desc', matched = '1' } = req.query;
-  const where = [];
-  const params = [];
-  if (matched !== 'all') {
-    where.push('j.matched = ?');
-    params.push(Number(matched) ? 1 : 0);
-  }
-  if (status && STATUSES.includes(status)) {
-    where.push('j.status = ?');
-    params.push(status);
-  }
-  if (q) {
-    where.push('(j.title LIKE ? OR j.company LIKE ? OR j.description LIKE ? OR j.location LIKE ?)');
-    const like = `%${q}%`;
-    params.push(like, like, like, like);
-  }
-  if (tag) {
-    where.push('j.tags LIKE ?');
-    params.push(`%"${tag}"%`);
-  }
-  let sql = LIST_SELECT + (where.length ? ` WHERE ${where.join(' AND ')}` : '');
-  const dirSql = String(dir).toLowerCase() === 'asc' ? 'ASC' : 'DESC';
-  const sorts = {
-    created: `j.id ${dirSql}`,
-    score: `score IS NULL, score ${dirSql}, j.id DESC`,
-    company: `j.company COLLATE NOCASE ${dirSql}`,
-    posted: `j.posted_at ${dirSql}`,
-    updated: `j.updated_at ${dirSql}`,
-  };
-  sql += ` ORDER BY ${sorts[sort] || sorts.created} LIMIT 500`;
-  let rows = db.prepare(sql).all(...params).map(parseJob);
-  if (minScore) rows = rows.filter((r) => r.score != null && r.score >= Number(minScore));
-  res.json(rows);
+  res.json(listJobsPage(req.query));
+});
+
+// Option list for the company picker on the jobs list.
+jobsRouter.get('/company-names', (req, res) => {
+  res.json(companyNames(req.query));
 });
 
 jobsRouter.get('/jobs/:id', (req, res) => {

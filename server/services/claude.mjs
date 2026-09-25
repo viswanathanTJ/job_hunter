@@ -121,6 +121,7 @@ Location: ${job.location}
 Posted: ${job.posted_at}
 Employment type: ${job.employment_type}
 Seniority: ${job.seniority}
+Years of experience asked for: ${job.yoe_min == null ? 'not stated' : `${job.yoe_min}+`}
 URL: ${job.url}
 
 Description:
@@ -136,6 +137,12 @@ Respond with ONLY a single JSON object (no markdown fences, no commentary) match
   "reasoning": "<3-6 sentences explaining the score>",
   "location_check": "<one sentence applying the location policy to this posting>"
 }
+Experience rule — the candidate has ${getProfile().yearsExperience} years of experience. Weigh the
+posting's ask against that: within 2 years over is a normal stretch and must NOT be penalised on its
+own; 3-4 years over should cost roughly a point; 5+ years over is a different role (team leadership,
+architecture ownership) and caps the score at 2.5 unless the described work genuinely matches what the
+CV shows. A posting that states no experience requirement is neutral — judge it on the work described.
+
 Rules: verdict must be NO if any hard rule fails, regardless of skills match. 3-6 pros and 1-5 cons, each one sentence. Score 4.0+ only when the candidate should actually apply.`;
 }
 
@@ -204,11 +211,11 @@ export function analyzeJob(jobId, { force = false } = {}) {
 /** Queue analyses for all jobs missing one. Returns the number queued. */
 export function analyzeAll({ force = false } = {}) {
   const rows = force
-    ? db.prepare("SELECT id FROM jobs WHERE status NOT IN ('discarded', 'rejected') AND matched = 1").all()
+    ? db.prepare("SELECT id FROM jobs WHERE status NOT IN ('discarded', 'rejected') AND matched = 1 AND ignored = 0").all()
     : db
         .prepare(
           `SELECT j.id FROM jobs j
-           WHERE j.status NOT IN ('discarded', 'rejected') AND j.matched = 1
+           WHERE j.status NOT IN ('discarded', 'rejected') AND j.matched = 1 AND j.ignored = 0
              AND NOT EXISTS (SELECT 1 FROM analyses a WHERE a.job_id = j.id)`
         )
         .all();

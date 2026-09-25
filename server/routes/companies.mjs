@@ -1,4 +1,5 @@
 import express from 'express';
+import { listJobsPage } from '../services/joblist.mjs';
 import { db, nowIso } from '../db.mjs';
 import {
   listCompanies,
@@ -7,7 +8,6 @@ import {
   deriveName,
   scanCompany,
   scanAllCompanies,
-  companyJobs,
 } from '../services/companyscan.mjs';
 
 export const companiesRouter = express.Router();
@@ -76,5 +76,7 @@ companiesRouter.post('/companies/:id/scan', (req, res) => {
 companiesRouter.get('/companies/:id/jobs', (req, res) => {
   const company = getCompany(Number(req.params.id));
   if (!company) return res.status(404).json({ error: 'Company not found' });
-  res.json(companyJobs(company, req.query));
+  // Same query the Jobs page uses, scoped to this company — one code path, so
+  // every filter, facet and bulk action behaves identically in both views.
+  res.json(listJobsPage({ ...req.query, company: company.name }));
 });

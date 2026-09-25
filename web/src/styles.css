@@ -458,7 +458,7 @@ textarea.input {
 }
 .job-row {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: auto 1fr auto;
   gap: 8px 16px;
   background: var(--bg-panel);
   border: 1px solid var(--line);
@@ -471,8 +471,55 @@ textarea.input {
 }
 .job-row:hover {
   border-color: var(--line-strong);
-  transform: translateX(3px);
   box-shadow: inset 3px 0 0 var(--accent);
+}
+.job-row.picked {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.job-row .title a {
+  color: inherit;
+  text-decoration: none;
+}
+.job-row .title a:hover {
+  text-decoration: underline;
+}
+/* Straight to the source posting, skipping the detail page. */
+.job-row .open-link {
+  margin-left: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.3px;
+  color: var(--ink-3);
+  text-decoration: none;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 1px 5px;
+  vertical-align: middle;
+}
+.job-row .open-link:hover {
+  color: var(--accent);
+}
+.pick {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+.pick input,
+.select-all input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.select-all {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px 2px;
+  font-size: 11.5px;
+  color: var(--ink-3);
+  cursor: pointer;
 }
 .job-row .title {
   font-family: var(--font-display);
@@ -493,6 +540,95 @@ textarea.input {
   align-items: flex-end;
   gap: 7px;
   justify-content: center;
+}
+/* Posted / added stamps, pinned to the right of a job row. */
+.job-row .stamps {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.job-row .stamps b {
+  color: var(--ink-2);
+  font-weight: 600;
+}
+
+/* Bulk action bar — only present while something is selected. */
+.bulk-bar {
+  position: sticky;
+  top: 8px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  padding: 9px 13px;
+  background: var(--bg-raise);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+}
+.bulk-bar .spacer {
+  flex: 1;
+}
+.bulk-bar .input,
+.bulk-bar .btn {
+  padding: 5px 9px;
+  font-size: 12px;
+}
+.link-btn {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--ink-3);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.link-btn:hover {
+  color: var(--accent);
+}
+.notice-line {
+  margin-bottom: 10px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  background: var(--bg-raise);
+  border: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.age-custom {
+  display: inline-flex;
+  gap: 5px;
+}
+.age-custom input {
+  width: 66px;
+}
+/* Added|Posted toggle next to the age window. */
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  overflow: hidden;
+}
+.seg button {
+  background: none;
+  border: 0;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 11px;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.seg button.on {
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 /* ============ kanban ============ */
@@ -881,4 +1017,265 @@ textarea.input {
   .proscons {
     grid-template-columns: 1fr;
   }
+}
+
+.kcard .foot .age {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-3);
+}
+
+/* ============ facets, company strength, sort editor ============ */
+.facet {
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  font-size: 10.5px;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.facet.mode-remote {
+  border-color: var(--mark-good);
+  color: var(--mark-good);
+}
+.facet.mode-hybrid {
+  border-color: var(--mark-amber);
+  color: var(--mark-amber);
+}
+/* Three bars: how this company has scored against your profile before. */
+.strength {
+  display: inline-flex;
+  gap: 2px;
+  align-items: flex-end;
+  height: 11px;
+  cursor: help;
+}
+.strength i {
+  width: 3px;
+  background: var(--line-strong);
+  border-radius: 1px;
+}
+.strength i:nth-child(1) { height: 5px; }
+.strength i:nth-child(2) { height: 8px; }
+.strength i:nth-child(3) { height: 11px; }
+.strength i.on {
+  background: var(--accent);
+}
+.sort-editor {
+  margin-bottom: 12px;
+  padding: 12px 15px;
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  max-width: 460px;
+}
+.sort-editor .head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 3px;
+}
+.sort-editor .head b {
+  flex: 1;
+}
+.sort-editor .hint {
+  margin: 0 0 9px;
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+.sort-editor ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sort-editor li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 9px;
+  background: var(--bg-raise);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  font-size: 12.5px;
+}
+.sort-editor li .n {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--ink-3);
+}
+.sort-editor li .grow {
+  flex: 1;
+}
+.sort-editor .link-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.sort-editor .add {
+  margin-top: 9px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  align-items: center;
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+.tier-badge {
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+.tier-badge.t-primary {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.tier-badge.t-secondary {
+  background: var(--bg-raise);
+  color: var(--ink-3);
+  border: 1px solid var(--line);
+}
+.role-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.role-list .row {
+  display: flex;
+  gap: 6px;
+}
+.role-list .row .input {
+  flex: 1;
+}
+
+.co-link {
+  color: inherit;
+  text-decoration: none;
+}
+.co-link:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.co-link .ext {
+  margin-left: 2px;
+  font-size: 9px;
+  color: var(--ink-3);
+}
+
+.facet.mode-ignored {
+  border-color: var(--mark-bad);
+  color: var(--mark-bad);
+}
+
+/* ============ pipeline column controls ============ */
+.kanban .col-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.kanban .col-head input[type='checkbox'] {
+  width: 13px;
+  height: 13px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.kanban .col-head .microlabel {
+  flex: 1;
+}
+.kanban .col-head .link-btn.on {
+  color: var(--accent);
+}
+.kanban .col-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 7px;
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+.kanban .col-tools .input {
+  font-size: 11.5px;
+  padding: 4px 7px;
+}
+.kanban .col-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 6px 8px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: 7px;
+  font-size: 11px;
+}
+.kanban .col-actions .btn {
+  padding: 3px 7px;
+  font-size: 11px;
+}
+.kcard.picked {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.kcard .t {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+.kcard .t input[type='checkbox'] {
+  margin-top: 2px;
+  width: 13px;
+  height: 13px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex: none;
+}
+.kcard .t a {
+  color: inherit;
+  text-decoration: none;
+}
+.kcard .t a:hover {
+  text-decoration: underline;
+}
+.kcard .c {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.list-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 2px 4px;
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+.list-head .spacer {
+  flex: 1;
+}
+.list-head .range {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+.list-head .input,
+.list-head .btn {
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
+.company-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.company-pick .input {
+  min-width: 150px;
 }

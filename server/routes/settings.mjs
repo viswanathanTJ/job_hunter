@@ -38,6 +38,13 @@ function sanitize(cur, b) {
   // Only persist a token when a non-empty value is provided (blank = keep existing).
   if (typeof b.apifyToken === 'string' && b.apifyToken.trim()) patch.apifyToken = b.apifyToken.trim();
 
+  if (b.search) {
+    const sr = b.search;
+    patch.search = {};
+    if (sr.primary !== undefined) patch.search.primary = list(sr.primary);
+    if (sr.secondary !== undefined) patch.search.secondary = list(sr.secondary);
+    if (sr.includeSecondary !== undefined) patch.search.includeSecondary = bool(sr.includeSecondary);
+  }
   if (b.linkedin) {
     const l = b.linkedin;
     patch.linkedin = {};

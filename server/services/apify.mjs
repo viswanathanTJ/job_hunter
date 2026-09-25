@@ -83,7 +83,7 @@ export function startFetch(source) {
       db.prepare(
         "UPDATE fetch_runs SET finished_at = ?, status = 'done', found = ?, imported = ?, updated = ? WHERE id = ?"
       ).run(nowIso(), parsed.length, res.created, res.updated, runRowId);
-      opEnd(opKey, 'done', { found: parsed.length, imported: res.created });
+      opEnd(opKey, 'done', { found: parsed.length, imported: res.created, autoRejected: res.autoRejected });
     } catch (e) {
       db.prepare("UPDATE fetch_runs SET finished_at = ?, status = 'error', error = ? WHERE id = ?").run(
         nowIso(),

@@ -2,6 +2,7 @@
 // for the importer. ATS detail APIs where available, generic HTML fallback
 // otherwise (SSR pages).
 import { db } from '../db.mjs';
+import { normalizePosted } from './posted.mjs';
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/126.0 Safari/537.36';
 
@@ -54,7 +55,7 @@ async function fromWorkday(u) {
     title: info.title,
     company: knownCompanyFor(u.hostname) || d.hiringOrganization?.name || cap(tenant),
     location: info.location || '',
-    postedAt: (info.startDate || info.postedOn || '').replace('Posted ', ''),
+    postedAt: normalizePosted(info.startDate || info.postedOn),
     employmentType: info.timeType || '',
     description: htmlToText(info.jobDescription),
   };
@@ -74,7 +75,7 @@ async function fromGreenhouse(u) {
     title: d.title,
     company: knownCompanyFor(u.hostname) || d.company_name || cap(slug),
     location: d.location?.name || '',
-    postedAt: (d.updated_at || '').slice(0, 10),
+    postedAt: normalizePosted(d.updated_at),
     description: htmlToText(d.content),
   };
 }
@@ -90,7 +91,7 @@ async function fromLever(u) {
     title: d.text,
     company: knownCompanyFor(u.hostname) || cap(slug),
     location: d.categories?.location || '',
-    postedAt: d.createdAt ? new Date(d.createdAt).toISOString().slice(0, 10) : '',
+    postedAt: normalizePosted(d.createdAt),
     employmentType: d.categories?.commitment || '',
     description: d.descriptionPlain || htmlToText(d.description),
   };
