@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { apiPost } from '../api.js';
 import JobList from '../JobList.jsx';
 
+/** JobList owns the filter state now; this key is kept so JobDetail's "back to jobs"
+ *  link still resolves. */
+export const JOBS_FILTER_KEY = 'jobs:filters';
+
 export default function Jobs() {
   const navigate = useNavigate();
   const [showAdd, setShowAdd] = useState(false);
@@ -25,32 +29,34 @@ export default function Jobs() {
   };
 
   return (
-    <>
-      <h1 className="page-title">Jobs</h1>
-      <p className="page-sub">Everything fetched or imported — search, filter, and drill in.</p>
+    <div className="page">
+      <div className="page-head">
+        <h1 className="page-title">Jobs</h1>
+        <p className="page-sub">Everything fetched or imported — search, filter, and drill in.</p>
 
-      <div className="toolbar">
-        <button className="btn" onClick={() => setShowAdd(!showAdd)}>
-          {showAdd ? 'Cancel' : '+ Add Job URL'}
-        </button>
-      </div>
-
-      {showAdd && (
-        <div className="toolbar" style={{ alignItems: 'center' }}>
-          <input
-            className="input grow"
-            placeholder="Paste a job posting URL (Workday, Greenhouse, Lever, Ashby, or any job page)…"
-            value={addUrl}
-            onChange={(e) => setAddUrl(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && addJob()}
-          />
-          <button className="btn" disabled={adding} onClick={addJob}>
-            {adding ? 'Fetching…' : 'Add & Analyze'}
+        <div className="toolbar">
+          <button className="btn" onClick={() => setShowAdd(!showAdd)}>
+            {showAdd ? 'Cancel' : '+ Add Job URL'}
           </button>
         </div>
-      )}
+
+        {showAdd && (
+          <div className="toolbar" style={{ alignItems: 'center' }}>
+            <input
+              className="input grow"
+              placeholder="Paste a job posting URL (Workday, Greenhouse, Lever, Ashby, or any job page)…"
+              value={addUrl}
+              onChange={(e) => setAddUrl(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && addJob()}
+            />
+            <button className="btn" disabled={adding} onClick={addJob}>
+              {adding ? 'Fetching…' : 'Add & Analyze'}
+            </button>
+          </div>
+        )}
+      </div>
 
       <JobList path="/jobs" storageKey="jobs" />
-    </>
+    </div>
   );
 }

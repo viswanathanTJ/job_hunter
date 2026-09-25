@@ -116,9 +116,16 @@ export default function Pipeline() {
   };
 
   return (
-    <>
-      <h1 className="page-title">Pipeline</h1>
-      <p className="page-sub">Drag cards between stages, or select some and move them together.</p>
+    <div className="page">
+      <div className="page-head">
+        <h1 className="page-title">Pipeline</h1>
+        <p className="page-sub">Drag cards between stages, or select some and move them together.</p>
+        {error && (
+          <div className="error-line" style={{ marginBottom: 12 }}>
+            {error}
+          </div>
+        )}
+      </div>
 
       <div className="toolbar">
         <AgeFilter within={age.within} withinBy={age.withinBy} onChange={setAge} />
@@ -137,7 +144,6 @@ export default function Pipeline() {
         {busy && <span className="spinner" />}
       </div>
 
-      {error && <div className="error-line" style={{ marginBottom: 12 }}>{error}</div>}
       {notice && <div className="notice-line">{notice}</div>}
 
       <div className="kanban">
@@ -232,43 +238,45 @@ export default function Pipeline() {
                 </div>
               )}
 
-              {shown.map((j) => (
-                <div
-                  key={j.id}
-                  className={`kcard ${selectedSet.has(j.id) ? 'picked' : ''}`}
-                  draggable
-                  onDragStart={(e) => e.dataTransfer.setData('text/job-id', String(j.id))}
-                >
-                  <div className="t">
-                    <input
-                      type="checkbox"
-                      checked={selectedSet.has(j.id)}
-                      onChange={() => {}}
-                      onClick={(e) => toggle(col, j.id, e.shiftKey)}
-                      title="Select — shift-click to extend the range"
-                    />
-                    <Link to={`/jobs/${j.id}`}>{j.title}</Link>
+              <div className="col-body">
+                {shown.map((j) => (
+                  <div
+                    key={j.id}
+                    className={`kcard ${selectedSet.has(j.id) ? 'picked' : ''}`}
+                    draggable
+                    onDragStart={(e) => e.dataTransfer.setData('text/job-id', String(j.id))}
+                  >
+                    <div className="t">
+                      <input
+                        type="checkbox"
+                        checked={selectedSet.has(j.id)}
+                        onChange={() => {}}
+                        onClick={(e) => toggle(col, j.id, e.shiftKey)}
+                        title="Select — shift-click to extend the range"
+                      />
+                      <Link to={`/jobs/${j.id}`}>{j.title}</Link>
+                    </div>
+                    <div className="c">
+                      <TierBadge tier={j.tier} />
+                      {j.company}
+                    </div>
+                    <div className="foot">
+                      <ScoreChip score={j.score} />
+                      {j.resume_pdf && <span className="tag">CV ✓</span>}
+                      <span className="age">{postedLabel(j.posted_at) || '—'}</span>
+                    </div>
                   </div>
-                  <div className="c">
-                    <TierBadge tier={j.tier} />
-                    {j.company}
-                  </div>
-                  <div className="foot">
-                    <ScoreChip score={j.score} />
-                    {j.resume_pdf && <span className="tag">CV ✓</span>}
-                    <span className="age">{postedLabel(j.posted_at) || '—'}</span>
-                  </div>
-                </div>
-              ))}
-              {limit > 0 && colJobs.length > limit && (
-                <button className="link-btn" onClick={() => setColLimit((c) => ({ ...c, [col]: limit + 25 }))}>
-                  show {Math.min(25, colJobs.length - limit)} more
-                </button>
-              )}
+                ))}
+                {limit > 0 && colJobs.length > limit && (
+                  <button className="link-btn" onClick={() => setColLimit((c) => ({ ...c, [col]: limit + 25 }))}>
+                    show {Math.min(25, colJobs.length - limit)} more
+                  </button>
+                )}
+              </div>
             </div>
           );
         })}
       </div>
-    </>
+    </div>
   );
 }

@@ -15,6 +15,7 @@ function toForm(s) {
     claudeModel: s.claudeModel || '',
     resumePdfName: s.resumePdfName || '',
     fetchCount: s.fetchCount ?? 10,
+    aiConcurrency: s.aiConcurrency ?? 10,
     linkedin: {
       actor: s.linkedin?.actor || '',
       query: s.linkedin?.query || '',
@@ -93,131 +94,178 @@ export default function Settings() {
   };
 
   return (
-    <>
-      <h1 className="page-title">Settings</h1>
-      <p className="page-sub">
-        Search config lives here — no more editing <code>.env</code>. Values fall back to{' '}
-        <code>.env</code> until you override them.
-      </p>
-
-      <div className="panel settings-block">
-        <h2 className="section-title">Roles you hunt for</h2>
-        <p className="page-sub" style={{ marginTop: -4 }}>
-          Each tier becomes one OR-joined search, so extra roles in a tier cost nothing per fetch. Titles are matched against these
-          lists to badge every job P1 or P2 — including jobs added by hand.
+    <div className="page">
+      <div className="page-head">
+        <h1 className="page-title">Settings</h1>
+        <p className="page-sub">
+          Search config lives here — no more editing <code>.env</code>. Values fall back to <code>.env</code> until you override them.
         </p>
-        <div className="settings-grid">
-          <div className="field">
-            <span className="microlabel">Primary roles</span>
-            <RoleList value={form.search.primary} onChange={(v) => setIn('search', 'primary', v)} placeholder="Backend Engineer" />
+      </div>
+
+      <div className="scroll-box">
+        <div className="panel settings-block">
+          <h2 className="section-title">Roles you hunt for</h2>
+          <p className="page-sub" style={{ marginTop: -4 }}>
+            Each tier becomes one OR-joined search, so extra roles in a tier cost nothing per fetch. Titles are matched against these
+            lists to badge every job P1 or P2 — including jobs added by hand.
+          </p>
+          <div className="settings-grid">
+            <div className="field">
+              <span className="microlabel">Primary roles</span>
+              <RoleList value={form.search.primary} onChange={(v) => setIn('search', 'primary', v)} placeholder="Backend Engineer" />
+            </div>
+            <div className="field">
+              <span className="microlabel">Secondary roles</span>
+              <RoleList value={form.search.secondary} onChange={(v) => setIn('search', 'secondary', v)} placeholder="DevOps Engineer" />
+            </div>
           </div>
-          <div className="field">
-            <span className="microlabel">Secondary roles</span>
-            <RoleList value={form.search.secondary} onChange={(v) => setIn('search', 'secondary', v)} placeholder="DevOps Engineer" />
+          <div className="check-row">
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={form.search.includeSecondary}
+                onChange={(e) => setIn('search', 'includeSecondary', e.target.checked)}
+              />
+              Also fetch secondary roles — doubles the searches (and Apify usage) per run
+            </label>
           </div>
         </div>
-        <div className="check-row">
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={form.search.includeSecondary}
-              onChange={(e) => setIn('search', 'includeSecondary', e.target.checked)}
-            />
-            Also fetch secondary roles — doubles the searches (and Apify usage) per run
-          </label>
+
+        <div className="panel settings-block">
+          <h2 className="section-title">Apify &amp; processing</h2>
+          <div className="settings-grid">
+            <label className="field">
+              <span className="microlabel">Apify token</span>
+              <input
+                className="input"
+                type="password"
+                placeholder={data.apifyTokenSet ? `set (${data.apifyTokenMasked}) — leave blank to keep` : 'not set'}
+                value={form.apifyToken}
+                onChange={(e) => set('apifyToken', e.target.value)}
+              />
+            </label>
+            <label className="field">
+              <span className="microlabel">Jobs per fetch</span>
+              <input className="input" type="number" min="1" max="200" value={form.fetchCount} onChange={(e) => set('fetchCount', e.target.value)} />
+            </label>
+            <label className="field">
+              <span className="microlabel">Parallel AI jobs</span>
+              <input
+                className="input"
+                type="number"
+                min="1"
+                max="20"
+                value={form.aiConcurrency}
+                onChange={(e) => set('aiConcurrency', e.target.value)}
+              />
+              <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>
+                Analyses and resume generations running at once (1–20). Higher finishes a backlog faster but uses more CPU and Claude quota.
+              </span>
+            </label>
+            <label className="field">
+              <span className="microlabel">Claude model</span>
+              <input className="input" value={form.claudeModel} onChange={(e) => set('claudeModel', e.target.value)} />
+            </label>
+            <label className="field">
+              <span className="microlabel">Resume PDF filename</span>
+              <input className="input" value={form.resumePdfName} onChange={(e) => set('resumePdfName', e.target.value)} />
+            </label>
+          </div>
+        </div>
+
+        <div className="panel settings-block">
+          <h2 className="section-title">LinkedIn</h2>
+          <div className="settings-grid">
+            <label className="field">
+              <span className="microlabel">Actor</span>
+              <input className="input" value={form.linkedin.actor} onChange={(e) => setIn('linkedin', 'actor', e.target.value)} />
+            </label>
+            <label className="field">
+              <span className="microlabel">Lookback (hours)</span>
+              <input
+                className="input"
+                type="number"
+                min="1"
+                max="720"
+                value={form.linkedin.lookbackHours}
+                onChange={(e) => setIn('linkedin', 'lookbackHours', e.target.value)}
+              />
+            </label>
+            <label className="field span-2">
+              <span className="microlabel">Search query</span>
+              <input className="input" value={form.linkedin.query} onChange={(e) => setIn('linkedin', 'query', e.target.value)} />
+            </label>
+            <label className="field span-2">
+              <span className="microlabel">Locations (comma-separated)</span>
+              <input
+                className="input"
+                placeholder="Bengaluru, Chennai"
+                value={form.linkedin.locations}
+                onChange={(e) => setIn('linkedin', 'locations', e.target.value)}
+              />
+            </label>
+          </div>
+          <div className="check-row">
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={form.linkedin.includeRemoteIndia}
+                onChange={(e) => setIn('linkedin', 'includeRemoteIndia', e.target.checked)}
+              />
+              Include remote (India)
+            </label>
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={form.linkedin.includeRemoteAnywhere}
+                onChange={(e) => setIn('linkedin', 'includeRemoteAnywhere', e.target.checked)}
+              />
+              Include remote (anywhere — brings in US &amp; other countries)
+            </label>
+          </div>
+        </div>
+
+        <div className="panel settings-block">
+          <h2 className="section-title">Naukri</h2>
+          <div className="settings-grid">
+            <label className="field span-2">
+              <span className="microlabel">Actor</span>
+              <input
+                className="input"
+                placeholder="username~naukri-job-scraper"
+                value={form.naukri.actor}
+                onChange={(e) => setIn('naukri', 'actor', e.target.value)}
+              />
+            </label>
+            <label className="field span-2">
+              <span className="microlabel">Search query</span>
+              <input className="input" value={form.naukri.query} onChange={(e) => setIn('naukri', 'query', e.target.value)} />
+            </label>
+            <label className="field span-2">
+              <span className="microlabel">Locations (comma-separated)</span>
+              <input
+                className="input"
+                placeholder="Bengaluru, Chennai"
+                value={form.naukri.locations}
+                onChange={(e) => setIn('naukri', 'locations', e.target.value)}
+              />
+            </label>
+          </div>
+          <div className="check-row">
+            <label className="check">
+              <input type="checkbox" checked={form.naukri.includeRemote} onChange={(e) => setIn('naukri', 'includeRemote', e.target.checked)} />
+              Include remote / work-from-home (India)
+            </label>
+          </div>
         </div>
       </div>
 
-      <div className="panel settings-block">
-        <h2 className="section-title">Apify &amp; processing</h2>
-        <div className="settings-grid">
-          <label className="field">
-            <span className="microlabel">Apify token</span>
-            <input
-              className="input"
-              type="password"
-              placeholder={data.apifyTokenSet ? `set (${data.apifyTokenMasked}) — leave blank to keep` : 'not set'}
-              value={form.apifyToken}
-              onChange={(e) => set('apifyToken', e.target.value)}
-            />
-          </label>
-          <label className="field">
-            <span className="microlabel">Jobs per fetch</span>
-            <input className="input" type="number" min="1" max="200" value={form.fetchCount} onChange={(e) => set('fetchCount', e.target.value)} />
-          </label>
-          <label className="field">
-            <span className="microlabel">Claude model</span>
-            <input className="input" value={form.claudeModel} onChange={(e) => set('claudeModel', e.target.value)} />
-          </label>
-          <label className="field">
-            <span className="microlabel">Resume PDF filename</span>
-            <input className="input" value={form.resumePdfName} onChange={(e) => set('resumePdfName', e.target.value)} />
-          </label>
-        </div>
-      </div>
-
-      <div className="panel settings-block">
-        <h2 className="section-title">LinkedIn</h2>
-        <div className="settings-grid">
-          <label className="field">
-            <span className="microlabel">Actor</span>
-            <input className="input" value={form.linkedin.actor} onChange={(e) => setIn('linkedin', 'actor', e.target.value)} />
-          </label>
-          <label className="field">
-            <span className="microlabel">Lookback (hours)</span>
-            <input className="input" type="number" min="1" max="720" value={form.linkedin.lookbackHours} onChange={(e) => setIn('linkedin', 'lookbackHours', e.target.value)} />
-          </label>
-          <label className="field span-2">
-            <span className="microlabel">Search query</span>
-            <input className="input" value={form.linkedin.query} onChange={(e) => setIn('linkedin', 'query', e.target.value)} />
-          </label>
-          <label className="field span-2">
-            <span className="microlabel">Locations (comma-separated)</span>
-            <input className="input" placeholder="Bengaluru, Chennai" value={form.linkedin.locations} onChange={(e) => setIn('linkedin', 'locations', e.target.value)} />
-          </label>
-        </div>
-        <div className="check-row">
-          <label className="check">
-            <input type="checkbox" checked={form.linkedin.includeRemoteIndia} onChange={(e) => setIn('linkedin', 'includeRemoteIndia', e.target.checked)} />
-            Include remote (India)
-          </label>
-          <label className="check">
-            <input type="checkbox" checked={form.linkedin.includeRemoteAnywhere} onChange={(e) => setIn('linkedin', 'includeRemoteAnywhere', e.target.checked)} />
-            Include remote (anywhere — brings in US &amp; other countries)
-          </label>
-        </div>
-      </div>
-
-      <div className="panel settings-block">
-        <h2 className="section-title">Naukri</h2>
-        <div className="settings-grid">
-          <label className="field span-2">
-            <span className="microlabel">Actor</span>
-            <input className="input" placeholder="username~naukri-job-scraper" value={form.naukri.actor} onChange={(e) => setIn('naukri', 'actor', e.target.value)} />
-          </label>
-          <label className="field span-2">
-            <span className="microlabel">Search query</span>
-            <input className="input" value={form.naukri.query} onChange={(e) => setIn('naukri', 'query', e.target.value)} />
-          </label>
-          <label className="field span-2">
-            <span className="microlabel">Locations (comma-separated)</span>
-            <input className="input" placeholder="Bengaluru, Chennai" value={form.naukri.locations} onChange={(e) => setIn('naukri', 'locations', e.target.value)} />
-          </label>
-        </div>
-        <div className="check-row">
-          <label className="check">
-            <input type="checkbox" checked={form.naukri.includeRemote} onChange={(e) => setIn('naukri', 'includeRemote', e.target.checked)} />
-            Include remote / work-from-home (India)
-          </label>
-        </div>
-      </div>
-
-      <div className="btn-row">
+      <div className="page-foot btn-row">
         <button className="btn primary" disabled={saving} onClick={save}>
           {saving ? <span className="spinner" /> : '✓'} Save settings
         </button>
         {msg && <span style={{ color: 'var(--ink-2)', fontSize: 13 }}>{msg}</span>}
       </div>
-    </>
+    </div>
   );
 }

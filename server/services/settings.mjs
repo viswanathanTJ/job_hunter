@@ -40,6 +40,8 @@ function envDefaults() {
     claudeModel: process.env.CLAUDE_MODEL || 'sonnet',
     resumePdfName: process.env.RESUME_PDF_NAME || 'Resume.pdf',
     fetchCount: Number(process.env.FETCH_COUNT || 10),
+    // How many analyses / resume generations may run at once (1-20).
+    aiConcurrency: Number(process.env.AI_CONCURRENCY || 10),
     linkedin: {
       actor: process.env.APIFY_ACTOR || 'curious_coder~linkedin-jobs-scraper',
       query: process.env.JOB_SEARCH_QUERY || tierQuery(search.primary),

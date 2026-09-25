@@ -4,7 +4,7 @@ import { db, nowIso, getJob, latestAnalysis, latestResume, setStatus, jobWithDet
 import { analyzeJob, analyzeAll } from '../services/claude.mjs';
 import { generateResume } from '../services/resume.mjs';
 import { markApplied } from '../services/tracker.mjs';
-import { opSnapshot, cancelOp } from '../services/ops.mjs';
+import { opSnapshot, cancelOp, cancelQueued, poolStats } from '../services/ops.mjs';
 import { BULK_ACTIONS } from '../services/bulk.mjs';
 
 export const actionsRouter = express.Router();
@@ -13,11 +13,19 @@ actionsRouter.get('/ops', (req, res) => {
   res.json(opSnapshot());
 });
 
+actionsRouter.get('/ops/pool', (req, res) => {
+  res.json(poolStats());
+});
+
 actionsRouter.post('/ops/cancel', (req, res) => {
   const key = String(req.body?.key || '');
   if (!key) return res.status(400).json({ error: 'key required' });
   if (!cancelOp(key)) return res.status(404).json({ error: 'No cancellable operation with that key' });
   res.json({ ok: true });
+});
+
+actionsRouter.post('/ops/cancel-queued', (req, res) => {
+  res.json({ cancelled: cancelQueued() });
 });
 
 // One endpoint for every selection-wide action, so the UI can report exactly

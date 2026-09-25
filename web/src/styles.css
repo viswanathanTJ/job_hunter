@@ -96,10 +96,14 @@ button {
 }
 
 /* ============ shell ============ */
+/* The viewport never scrolls — every long region scrolls inside its own box. */
 .shell {
   display: grid;
-  grid-template-columns: 218px 1fr;
-  min-height: 100vh;
+  /* minmax(0, …) so wide content can't push a track past the viewport */
+  grid-template-columns: 218px minmax(0, 1fr);
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
 }
 .sidebar {
   border-right: 1px solid var(--line);
@@ -107,9 +111,9 @@ button {
   display: flex;
   flex-direction: column;
   gap: 26px;
-  position: sticky;
-  top: 0;
-  height: 100vh;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
   background: linear-gradient(180deg, var(--bg-raise), var(--bg));
 }
 .brand {
@@ -174,6 +178,7 @@ button {
   flex-direction: column;
   gap: 12px;
 }
+/* analyze/fetch queue — fixed box, scrolls internally once several ops stack up */
 .live-ops {
   font-family: var(--font-mono);
   font-size: 10.5px;
@@ -185,11 +190,54 @@ button {
   display: flex;
   flex-direction: column;
   gap: 5px;
+  max-height: 232px;
+  overflow-y: auto;
+  flex: 0 0 auto;
 }
 .live-ops .row {
   display: flex;
   align-items: center;
   gap: 7px;
+}
+.live-ops .queue-head {
+  display: flex;
+  gap: 10px;
+  color: var(--accent);
+  font-weight: 600;
+  padding-bottom: 5px;
+  border-bottom: 1px dashed var(--line);
+  position: sticky;
+  top: -8px;
+  background: var(--bg-raise);
+}
+.live-ops .row.more {
+  color: var(--ink-3);
+  padding-left: 19px;
+}
+.live-ops .queue-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  display: inline-block;
+  flex: 0 0 auto;
+  margin: 2px;
+}
+.live-ops .queue-clear {
+  background: none;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  color: var(--ink-3);
+  font-family: inherit;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  padding: 3px 6px;
+  margin-top: 4px;
+  cursor: pointer;
+}
+.live-ops .queue-clear:hover {
+  color: var(--bad);
+  border-color: var(--bad);
 }
 .live-ops .op-x {
   background: none;
@@ -204,11 +252,132 @@ button {
   color: var(--bad);
 }
 .main {
-  padding: 30px 38px 60px;
+  padding: 30px 38px 22px;
   max-width: 1240px;
   width: 100%;
   margin: 0 auto;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   animation: fadeUp 0.35s ease both;
+}
+
+/* ============ page frame (static head, scrolling body) ============ */
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.page-head {
+  flex: 0 0 auto;
+}
+/* used where the head itself can get tall (job detail) */
+.page-head.compact {
+  max-height: 46vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.page-foot {
+  flex: 0 0 auto;
+  padding-top: 14px;
+  margin-top: 4px;
+  border-top: 1px solid var(--line);
+}
+/* the one scrolling region of a page */
+.scroll-box {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 6px;
+  padding-bottom: 12px;
+  scrollbar-gutter: stable;
+}
+/* a region whose panels fill the leftover height and scroll their own lists */
+.fill-box {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: 4px;
+}
+.fill-box > .detail-grid {
+  height: 100%;
+  min-height: 0;
+  align-items: stretch;
+}
+.fill-box .panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.fill-box .scroll-list {
+  flex: 1 1 auto;
+  max-height: none;
+}
+
+/* a capped list inside a panel (activity, notes, history) */
+.scroll-list {
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+/* nested list revealed inside a scrolling page (company results) */
+.nested-scroll {
+  max-height: 340px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+/* consistent, unobtrusive scrollbars on every scroll box */
+.sidebar,
+.scroll-box,
+.fill-box,
+.scroll-list,
+.nested-scroll,
+.jd-box,
+.kanban,
+.kanban .col-body {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+.sidebar::-webkit-scrollbar,
+.scroll-box::-webkit-scrollbar,
+.fill-box::-webkit-scrollbar,
+.scroll-list::-webkit-scrollbar,
+.nested-scroll::-webkit-scrollbar,
+.jd-box::-webkit-scrollbar,
+.kanban::-webkit-scrollbar,
+.kanban .col-body::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+.sidebar::-webkit-scrollbar-thumb,
+.scroll-box::-webkit-scrollbar-thumb,
+.fill-box::-webkit-scrollbar-thumb,
+.scroll-list::-webkit-scrollbar-thumb,
+.nested-scroll::-webkit-scrollbar-thumb,
+.jd-box::-webkit-scrollbar-thumb,
+.kanban::-webkit-scrollbar-thumb,
+.kanban .col-body::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 6px;
+}
+.sidebar::-webkit-scrollbar-track,
+.scroll-box::-webkit-scrollbar-track,
+.fill-box::-webkit-scrollbar-track,
+.scroll-list::-webkit-scrollbar-track,
+.nested-scroll::-webkit-scrollbar-track,
+.jd-box::-webkit-scrollbar-track,
+.kanban::-webkit-scrollbar-track,
+.kanban .col-body::-webkit-scrollbar-track {
+  background: transparent;
 }
 @keyframes fadeUp {
   from {
@@ -352,13 +521,38 @@ h1.page-title {
   color: var(--ink-2);
   white-space: nowrap;
 }
-.badge.s-new { border-color: var(--line-strong); }
-.badge.s-reviewed { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
-.badge.s-resume_generated { color: var(--good); border-color: var(--good); background: var(--good-soft); }
-.badge.s-ready_to_apply { color: var(--warn); border-color: var(--warn); background: var(--warn-soft); }
-.badge.s-applied { color: var(--accent-ink); background: var(--mark-good); border-color: var(--mark-good); }
-.badge.s-rejected { color: var(--bad); border-color: var(--bad); background: var(--bad-soft); }
-.badge.s-discarded { color: var(--ink-3); border-style: dashed; }
+.badge.s-new {
+  border-color: var(--line-strong);
+}
+.badge.s-reviewed {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.badge.s-resume_generated {
+  color: var(--good);
+  border-color: var(--good);
+  background: var(--good-soft);
+}
+.badge.s-ready_to_apply {
+  color: var(--warn);
+  border-color: var(--warn);
+  background: var(--warn-soft);
+}
+.badge.s-applied {
+  color: var(--accent-ink);
+  background: var(--mark-good);
+  border-color: var(--mark-good);
+}
+.badge.s-rejected {
+  color: var(--bad);
+  border-color: var(--bad);
+  background: var(--bad-soft);
+}
+.badge.s-discarded {
+  color: var(--ink-3);
+  border-style: dashed;
+}
 
 .score-chip {
   font-family: var(--font-mono);
@@ -376,13 +570,31 @@ h1.page-title {
   height: 7px;
   border-radius: 50%;
 }
-.score-chip.good { background: var(--good-soft); color: var(--good); }
-.score-chip.good .dot { background: var(--mark-good); }
-.score-chip.warn { background: var(--warn-soft); color: var(--warn); }
-.score-chip.warn .dot { background: var(--mark-amber); }
-.score-chip.bad { background: var(--bad-soft); color: var(--bad); }
-.score-chip.bad .dot { background: var(--mark-bad); }
-.score-chip.none { color: var(--ink-3); border: 1px dashed var(--line-strong); }
+.score-chip.good {
+  background: var(--good-soft);
+  color: var(--good);
+}
+.score-chip.good .dot {
+  background: var(--mark-good);
+}
+.score-chip.warn {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+.score-chip.warn .dot {
+  background: var(--mark-amber);
+}
+.score-chip.bad {
+  background: var(--bad-soft);
+  color: var(--bad);
+}
+.score-chip.bad .dot {
+  background: var(--mark-bad);
+}
+.score-chip.none {
+  color: var(--ink-3);
+  border: 1px dashed var(--line-strong);
+}
 
 .tag {
   font-family: var(--font-mono);
@@ -455,6 +667,12 @@ textarea.input {
   display: flex;
   flex-direction: column;
   gap: 9px;
+}
+.result-count {
+  font-size: 11px;
+  color: var(--ink-3);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
 }
 .job-row {
   display: grid;
@@ -632,24 +850,39 @@ textarea.input {
 }
 
 /* ============ kanban ============ */
+/* Board fills the page; each column scrolls its own cards. */
 .kanban {
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: minmax(215px, 1fr);
   gap: 12px;
   overflow-x: auto;
-  padding-bottom: 14px;
-  align-items: start;
+  overflow-y: hidden;
+  padding-bottom: 10px;
+  align-items: stretch;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 .kanban .col {
   background: var(--bg-raise);
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 10px;
-  min-height: 320px;
+  min-height: 260px;
+  height: 100%;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  overflow: hidden;
+}
+.kanban .col-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 4px;
 }
 .kanban .col.drag-over {
   border-color: var(--accent);
@@ -661,6 +894,7 @@ textarea.input {
   align-items: center;
   padding: 3px 6px 8px;
   border-bottom: 1px solid var(--line);
+  flex: 0 0 auto;
 }
 .kanban .count {
   font-family: var(--font-mono);
@@ -817,8 +1051,12 @@ textarea.input {
   gap: 6px;
   font-size: 13.5px;
 }
-.proscons .pro-head { color: var(--good); }
-.proscons .con-head { color: var(--bad); }
+.proscons .pro-head {
+  color: var(--good);
+}
+.proscons .con-head {
+  color: var(--bad);
+}
 .jd-box {
   white-space: pre-wrap;
   font-size: 13.5px;
@@ -869,9 +1107,15 @@ textarea.input {
   background: var(--ink-3);
   margin-top: 5px;
 }
-.tl-dot.good { background: var(--mark-good); }
-.tl-dot.bad { background: var(--mark-bad); }
-.tl-dot.accent { background: var(--mark-amber); }
+.tl-dot.good {
+  background: var(--mark-good);
+}
+.tl-dot.bad {
+  background: var(--mark-bad);
+}
+.tl-dot.accent {
+  background: var(--mark-amber);
+}
 .tl-body {
   font-size: 13px;
 }
@@ -984,11 +1228,13 @@ textarea.input {
 /* ============ responsive ============ */
 @media (max-width: 980px) {
   .shell {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
   }
   .sidebar {
-    position: static;
     height: auto;
+    overflow-x: auto;
+    overflow-y: hidden;
     flex-direction: row;
     align-items: center;
     gap: 14px;
@@ -1009,13 +1255,31 @@ textarea.input {
     display: none;
   }
   .main {
-    padding: 20px 16px 50px;
+    padding: 20px 16px 14px;
   }
   .detail-grid {
     grid-template-columns: 1fr;
   }
   .proscons {
     grid-template-columns: 1fr;
+  }
+  .page-head.compact {
+    max-height: none;
+    overflow: visible;
+  }
+  /* stacked panels get too short to fill — let the region scroll instead */
+  .fill-box {
+    overflow-y: auto;
+  }
+  .fill-box > .detail-grid {
+    height: auto;
+  }
+  .fill-box .panel {
+    overflow: visible;
+  }
+  .fill-box .scroll-list {
+    flex: 0 0 auto;
+    max-height: 300px;
   }
 }
 

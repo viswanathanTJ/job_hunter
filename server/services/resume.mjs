@@ -6,7 +6,7 @@ import path from 'node:path';
 import { RESUME_ROOT, MASTER_RESUME, CV_MD, readIfExists } from '../paths.mjs';
 import { db, nowIso, addEvent, getJob, latestAnalysis, latestResume, setStatus } from '../db.mjs';
 import { runClaude, extractText } from './claude.mjs';
-import { enqueue, opQueue, opStart, opEnd, opActive } from './ops.mjs';
+import { enqueue, opQueue, opStart, opEnd, opActive, createPool } from './ops.mjs';
 
 const pdfName = () => process.env.RESUME_PDF_NAME || 'Viswanathan-T-J-Resume.pdf';
 
@@ -19,19 +19,36 @@ function companySlug(company) {
   );
 }
 
-function resolveDir(job) {
+// Dirs held by in-flight generations. Two jobs at the same company can now run
+// concurrently, and neither has a resumes row or a job-info.txt yet — without
+// this claim they would both resolve to Resume/<Company>/ and overwrite each other.
+const claimedDirs = new Set();
+
+/** True when `dir` belongs to some other job (in flight, in the DB, or on disk). */
+function dirTaken(dir, job) {
+  if (claimedDirs.has(dir)) return true;
+  if (db.prepare('SELECT 1 FROM resumes WHERE dir = ? AND job_id != ? LIMIT 1').get(dir, job.id)) return true;
+  const infoPath = path.join(dir, 'job-info.txt');
+  // A folder left by this same posting is ours to reuse.
+  return fs.existsSync(infoPath) && !readIfExists(infoPath).includes(job.url);
+}
+
+/** Resolve (and claim) the output dir. Release with releaseDir() when done. */
+function claimDir(job) {
   const existing = latestResume(job.id);
-  if (existing) return existing.dir;
-  let base = companySlug(job.company);
-  // If another job already claimed this folder, disambiguate with the job id.
-  const clash = db
-    .prepare('SELECT 1 FROM resumes WHERE dir = ? AND job_id != ? LIMIT 1')
-    .get(path.join(RESUME_ROOT, base), job.id);
-  if (clash || fs.existsSync(path.join(RESUME_ROOT, base, 'job-info.txt'))) {
-    const info = readIfExists(path.join(RESUME_ROOT, base, 'job-info.txt'));
-    if (!info.includes(job.url)) base = `${base}-${job.id}`;
+  if (existing) {
+    claimedDirs.add(existing.dir);
+    return existing.dir;
   }
-  return path.join(RESUME_ROOT, base);
+  const base = path.join(RESUME_ROOT, companySlug(job.company));
+  // The job-id suffix is unique per job, so the fallback can't collide again.
+  const dir = dirTaken(base, job) ? `${base}-${job.id}` : base;
+  claimedDirs.add(dir);
+  return dir;
+}
+
+function releaseDir(dir) {
+  if (dir) claimedDirs.delete(dir);
 }
 
 function buildResumePrompt(job, analysis) {
@@ -91,16 +108,23 @@ function cleanHtml(text) {
   return html;
 }
 
-async function renderPdf(htmlPath, pdfPath) {
-  const { chromium } = await import('playwright');
-  const browser = await chromium.launch();
-  try {
-    const page = await browser.newPage();
-    await page.goto(`file://${htmlPath}`, { waitUntil: 'networkidle' });
-    await page.pdf({ path: pdfPath, printBackground: true, preferCSSPageSize: true });
-  } finally {
-    await browser.close();
-  }
+// The AI pool may run many resume jobs at once, but each render launches a
+// Chromium — cap those separately so parallelism doesn't exhaust memory.
+const RENDER_CONCURRENCY = 3;
+const renderPool = createPool(() => RENDER_CONCURRENCY);
+
+function renderPdf(htmlPath, pdfPath) {
+  return renderPool.add(async () => {
+    const { chromium } = await import('playwright');
+    const browser = await chromium.launch();
+    try {
+      const page = await browser.newPage();
+      await page.goto(`file://${htmlPath}`, { waitUntil: 'networkidle' });
+      await page.pdf({ path: pdfPath, printBackground: true, preferCSSPageSize: true });
+    } finally {
+      await browser.close();
+    }
+  });
 }
 
 function countPdfPages(pdfPath) {
@@ -153,6 +177,7 @@ export function generateResume(jobId, { force = false } = {}) {
       return { cancelled: true };
     }
     opStart(key);
+    let dir = null;
     try {
       const analysis = latestAnalysis(jobId);
       const raw = await runClaude(buildResumePrompt(job, analysis), {
@@ -161,7 +186,7 @@ export function generateResume(jobId, { force = false } = {}) {
       });
       const html = cleanHtml(extractText(raw));
 
-      const dir = resolveDir(job);
+      dir = claimDir(job);
       fs.mkdirSync(dir, { recursive: true });
       const htmlPath = path.join(dir, 'resume.html');
       const pdfPath = path.join(dir, pdfName());
@@ -202,6 +227,8 @@ export function generateResume(jobId, { force = false } = {}) {
       addEvent(jobId, 'resume_failed', { error: String(e.message || e).slice(0, 500) });
       opEnd(key, 'error', { error: String(e.message || e) });
       throw e;
+    } finally {
+      releaseDir(dir);
     }
   });
 }
